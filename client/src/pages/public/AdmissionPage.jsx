@@ -5,7 +5,7 @@ import api from '../../services/api';
 import { useFetch } from '../../hooks/useFetch';
 
 const AdmissionPage = () => {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const { data: courses } = useFetch('/courses');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
@@ -85,6 +85,21 @@ const AdmissionPage = () => {
                   {courses?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 {errors.courseId && <span className="form-error">Required</span>}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Password *</label>
+                <input className="form-input" type="password" {...register('password', { required: true, minLength: 8 })} />
+                {errors.password?.type === 'required' && <span className="form-error">Required</span>}
+                {errors.password?.type === 'minLength' && <span className="form-error">Min 8 chars</span>}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Confirm Password *</label>
+                <input className="form-input" type="password" {...register('confirmPassword', { 
+                  required: true,
+                  validate: val => val === watch('password') || 'Passwords do not match'
+                })} />
+                {errors.confirmPassword?.type === 'required' && <span className="form-error">Required</span>}
+                {errors.confirmPassword?.message && <span className="form-error">{errors.confirmPassword.message}</span>}
               </div>
             </div>
 

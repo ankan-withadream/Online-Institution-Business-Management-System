@@ -90,6 +90,7 @@ CREATE TABLE admissions (
   franchise_id UUID REFERENCES franchises(id),
   full_name TEXT NOT NULL,
   email TEXT NOT NULL,
+  initial_password TEXT,
   phone TEXT NOT NULL,
   date_of_birth DATE,
   gender TEXT,

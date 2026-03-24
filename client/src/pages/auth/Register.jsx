@@ -62,8 +62,8 @@ const Register = () => {
           <div className="form-group">
             <label className="form-label">Register As</label>
             <select className="form-select" value={form.role} onChange={e => update('role', e.target.value)}>
-              <option value="student">Student</option>
-              <option value="franchise">Franchise Partner</option>
+              {/* <option value="student">Student</option> */}
+              <option selected disabled value="franchise">Franchise Partner</option>
             </select>
           </div>
           <button className="btn btn-primary" type="submit" style={{ width: '100%' }} disabled={loading}>

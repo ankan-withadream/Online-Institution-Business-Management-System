@@ -2,13 +2,14 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, Users, FileText, GraduationCap, Award,
-  Bell, ClipboardList, Building2, LogOut, ChevronRight
+  Bell, ClipboardList, Building2, LogOut, ChevronRight, BookOpen
 } from 'lucide-react';
 import './DashboardLayout.css';
 
 const adminNav = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/admin/students', label: 'Students', icon: Users },
+  { path: '/admin/courses', label: 'Courses', icon: BookOpen },
   { path: '/admin/admissions', label: 'Admissions', icon: FileText },
   { path: '/admin/exams', label: 'Exams', icon: ClipboardList },
   { path: '/admin/results', label: 'Results', icon: Award },

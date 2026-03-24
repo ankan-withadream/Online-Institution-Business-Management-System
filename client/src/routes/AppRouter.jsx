@@ -22,6 +22,7 @@ import ForgotPassword from '../pages/auth/ForgotPassword';
 // Admin Pages
 import AdminDashboard from '../pages/admin/AdminDashboard';
 import AdminStudents from '../pages/admin/AdminStudents';
+import AdminCourses from '../pages/admin/AdminCourses';
 import AdminAdmissions from '../pages/admin/AdminAdmissions';
 import AdminExams from '../pages/admin/AdminExams';
 import AdminResults from '../pages/admin/AdminResults';
@@ -69,6 +70,7 @@ const AppRouter = () => {
           }>
             <Route index element={<AdminDashboard />} />
             <Route path="students" element={<AdminStudents />} />
+            <Route path="courses" element={<AdminCourses />} />
             <Route path="admissions" element={<AdminAdmissions />} />
             <Route path="exams" element={<AdminExams />} />
             <Route path="results" element={<AdminResults />} />

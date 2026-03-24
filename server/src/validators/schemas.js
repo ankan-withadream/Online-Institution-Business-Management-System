@@ -25,6 +25,7 @@ export const admissionSchema = z.object({
   franchiseId: z.string().uuid().optional(),
   fullName: z.string().min(2),
   email: z.string().email(),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   phone: z.string().min(10),
   dateOfBirth: z.string(),
   gender: z.enum(['male', 'female', 'other']),

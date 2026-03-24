@@ -9,6 +9,7 @@ export const create = async (req, res) => {
       franchise_id: body.franchiseId || null,
       full_name: body.fullName,
       email: body.email,
+      initial_password: body.password,
       phone: body.phone,
       date_of_birth: body.dateOfBirth,
       gender: body.gender,
@@ -94,16 +95,22 @@ export const updateStatus = async (req, res) => {
 
     // If approved, create a user account and student record
     if (status === 'approved') {
-      const tempPassword = `Edu@${Date.now().toString(36)}`;
+      const finalPassword = admission.initial_password || `Edu@${Date.now().toString(36)}`;
 
       // Create auth user
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: admission.email,
-        password: tempPassword,
+        password: finalPassword,
         email_confirm: true,
       });
 
-      if (!authError && authData?.user) {
+      if (authError) {
+        // Rollback admission status to pending if user creation fails
+        await supabaseAdmin.from('admissions').update({ status: 'pending' }).eq('id', req.params.id);
+        return res.status(400).json({ error: `Failed to create user account: ${authError.message}` });
+      }
+
+      if (authData?.user) {
         // Get student role ID
         const { data: roleData } = await supabaseAdmin
           .from('roles')
