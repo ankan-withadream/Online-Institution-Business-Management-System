@@ -4,7 +4,7 @@ export const getAll = async (_req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('courses')
-      .select('*')
+      .select('*, subjects(*)')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
@@ -20,7 +20,7 @@ export const getById = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('courses')
-      .select('*')
+      .select('*, subjects(*)')
       .eq('id', req.params.id)
       .single();
 
@@ -34,7 +34,7 @@ export const getById = async (req, res) => {
 
 export const create = async (req, res) => {
   try {
-    const { name, slug, description, durationMonths, fee, isActive } = req.body;
+    const { name, slug, description, durationMonths, fee, isActive, subjects } = req.body;
     const { data, error } = await supabaseAdmin.from('courses').insert({
       name,
       slug,
@@ -45,6 +45,19 @@ export const create = async (req, res) => {
     }).select().single();
 
     if (error) throw error;
+
+    if (subjects && subjects.length > 0) {
+      const parsedSubjects = subjects.map(s => ({
+        course_id: data.id,
+        name: s.name,
+        code: s.code,
+        description: s.description,
+        max_marks: s.maxMarks || 100
+      }));
+      const { error: subErr } = await supabaseAdmin.from('subjects').insert(parsedSubjects);
+      if (subErr) throw subErr;
+    }
+
     res.status(201).json(data);
   } catch (err) {
     console.error('Create course error:', err);
@@ -54,8 +67,8 @@ export const create = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
-    const { name, slug, description, durationMonths, fee, isActive } = req.body;
-    const { data, error } = await supabaseAdmin
+    const { name, slug, description, durationMonths, fee, isActive, subjects } = req.body;
+    const { data: courseData, error: courseError } = await supabaseAdmin
       .from('courses')
       .update({
         name,
@@ -70,9 +83,39 @@ export const update = async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Course not found' });
-    res.json(data);
+    if (courseError) throw courseError;
+    if (!courseData) return res.status(404).json({ error: 'Course not found' });
+
+    if (subjects) {
+      const { data: existingSubjects } = await supabaseAdmin
+        .from('subjects')
+        .select('id, code')
+        .eq('course_id', req.params.id);
+      
+      const incomingCodes = subjects.map(s => s.code);
+      const codesToDelete = existingSubjects
+         ?.filter(es => !incomingCodes.includes(es.code))
+         .map(es => es.code) || [];
+      
+      if (codesToDelete.length > 0) {
+         await supabaseAdmin.from('subjects').delete().in('code', codesToDelete);
+      }
+      
+      if (subjects.length > 0) {
+        const parsedSubjects = subjects.map(s => ({
+          course_id: req.params.id,
+          name: s.name,
+          code: s.code,
+          description: s.description,
+          max_marks: s.maxMarks || s.max_marks || 100
+        }));
+        
+        const { error: subErr } = await supabaseAdmin.from('subjects').upsert(parsedSubjects, { onConflict: 'code' });
+        if (subErr) throw subErr;
+      }
+    }
+
+    res.json(courseData);
   } catch (err) {
     console.error('Update course error:', err);
     res.status(500).json({ error: 'Failed to update course' });

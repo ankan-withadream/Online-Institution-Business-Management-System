@@ -16,6 +16,7 @@ const AdminCourses = () => {
     durationMonths: '',
     fee: '',
     isActive: true,
+    subjects: [],
   });
 
   const generateSlug = (name) => {
@@ -41,6 +42,12 @@ const AdminCourses = () => {
         durationMonths: course.duration_months || '',
         fee: course.fee || '',
         isActive: course.is_active,
+        subjects: course.subjects ? course.subjects.map(s => ({
+          name: s.name,
+          code: s.code,
+          description: s.description || '',
+          maxMarks: s.max_marks || 100
+        })) : [],
       });
     } else {
       setEditingCourse(null);
@@ -51,6 +58,7 @@ const AdminCourses = () => {
         durationMonths: '',
         fee: '',
         isActive: true,
+        subjects: [],
       });
     }
     setIsModalOpen(true);
@@ -175,7 +183,7 @@ const AdminCourses = () => {
 
       {isModalOpen && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '700px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
                 {editingCourse ? 'Edit Course' : 'Add New Course'}
@@ -248,6 +256,92 @@ const AdminCourses = () => {
                     className="form-control"
                   />
                 </div>
+              </div>
+
+              <div style={{ marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Subjects</h3>
+                  <button 
+                    type="button" 
+                    onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100 }] }))}
+                    className="btn-secondary"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                  >
+                    <Plus size={16} /> Add Subject
+                  </button>
+                </div>
+                {formData.subjects.map((subject, index) => (
+                  <div key={index} style={{ background: '#f9fafb', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem', position: 'relative' }}>
+                    <button 
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, subjects: prev.subjects.filter((_, i) => i !== index) }))}
+                      style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem', marginTop: '1rem' }}>
+                      <div className="form-group" style={{ flex: 2 }}>
+                        <label style={{ fontSize: '0.875rem' }}>Subject Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={subject.name}
+                          onChange={(e) => {
+                            const newSubjects = [...formData.subjects];
+                            newSubjects[index].name = e.target.value;
+                            setFormData({ ...formData, subjects: newSubjects });
+                          }}
+                          className="form-control"
+                          placeholder="e.g. Mathematics"
+                        />
+                      </div>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.875rem' }}>Code</label>
+                        <input
+                          type="text"
+                          required
+                          value={subject.code}
+                          onChange={(e) => {
+                            const newSubjects = [...formData.subjects];
+                            newSubjects[index].code = e.target.value;
+                            setFormData({ ...formData, subjects: newSubjects });
+                          }}
+                          className="form-control"
+                          placeholder="e.g. MAT101"
+                        />
+                      </div>
+                      <div className="form-group" style={{ flex: 1 }}>
+                        <label style={{ fontSize: '0.875rem' }}>Max Marks</label>
+                        <input
+                          type="number"
+                          required
+                          value={subject.maxMarks}
+                          onChange={(e) => {
+                            const newSubjects = [...formData.subjects];
+                            newSubjects[index].maxMarks = parseInt(e.target.value);
+                            setFormData({ ...formData, subjects: newSubjects });
+                          }}
+                          className="form-control"
+                          min="0"
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label style={{ fontSize: '0.875rem' }}>Description</label>
+                      <input
+                        type="text"
+                        value={subject.description}
+                        onChange={(e) => {
+                          const newSubjects = [...formData.subjects];
+                          newSubjects[index].description = e.target.value;
+                          setFormData({ ...formData, subjects: newSubjects });
+                        }}
+                        className="form-control"
+                        placeholder="Optional description"
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>

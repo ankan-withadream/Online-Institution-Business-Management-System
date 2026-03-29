@@ -42,6 +42,12 @@ export const courseSchema = z.object({
   durationMonths: z.number().int().positive(),
   fee: z.number().positive(),
   isActive: z.boolean().optional().default(true),
+  subjects: z.array(z.object({
+    name: z.string().min(2),
+    code: z.string().min(2),
+    description: z.string().optional(),
+    maxMarks: z.number().int().positive().optional().default(100),
+  })).optional(),
 });
 
 export const examSchema = z.object({
@@ -97,6 +103,7 @@ export const statusUpdateSchema = z.object({
 export const subjectSchema = z.object({
   name: z.string().min(2),
   code: z.string().min(2),
-  courseId: z.string().uuid(),
+  description: z.string().optional(),
+  courseId: z.string().uuid().optional(),
   maxMarks: z.number().int().positive(),
 });

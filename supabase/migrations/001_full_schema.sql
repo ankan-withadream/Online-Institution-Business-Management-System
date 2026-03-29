@@ -127,6 +127,7 @@ CREATE TABLE subjects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   code TEXT UNIQUE NOT NULL,
+  description TEXT NULL,
   course_id UUID REFERENCES courses(id),
   max_marks INTEGER,
   created_at TIMESTAMPTZ DEFAULT now()
