@@ -81,6 +81,7 @@ export const franchiseApplySchema = z.object({
   organizationName: z.string().min(2),
   contactPerson: z.string().min(2),
   email: z.string().email(),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   phone: z.string().min(10),
   address: z.string().min(5),
   city: z.string().min(2),

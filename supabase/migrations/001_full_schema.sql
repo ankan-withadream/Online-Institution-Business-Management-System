@@ -47,6 +47,7 @@ CREATE TABLE franchises (
   organization_name TEXT NOT NULL,
   contact_person TEXT NOT NULL,
   email TEXT NOT NULL,
+  initial_password TEXT,
   phone TEXT NOT NULL,
   address TEXT,
   city TEXT,

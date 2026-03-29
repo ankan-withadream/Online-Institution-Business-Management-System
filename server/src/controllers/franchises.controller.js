@@ -7,6 +7,7 @@ export const apply = async (req, res) => {
       organization_name: body.organizationName,
       contact_person: body.contactPerson,
       email: body.email,
+      initial_password: body.password,
       phone: body.phone,
       address: body.address,
       city: body.city,
@@ -92,10 +93,10 @@ export const updateStatus = async (req, res) => {
 
     // If approved, create a user account for the franchise
     if (status === 'approved' && !franchise.user_id) {
-      const tempPassword = `Fran@${Date.now().toString(36)}`;
+      // const tempPassword = `Fran@${Date.now().toString(36)}`;
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email: franchise.email,
-        password: tempPassword,
+        password: franchise.initial_password,
         email_confirm: true,
       });
 

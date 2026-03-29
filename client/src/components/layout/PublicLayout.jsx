@@ -12,7 +12,8 @@ export const PublicLayout = () => {
     if (!user) return '/login';
     if (user.role === 'admin') return '/admin';
     if (user.role === 'student') return '/student';
-    return '/franchise-dashboard';
+    if (user.role === 'franchise') return '/franchise-dashboard';
+    return '/login';
   };
 
   return (
@@ -31,6 +32,7 @@ export const PublicLayout = () => {
             <Link to="/notices" onClick={() => setMenuOpen(false)}>Notices</Link>
             <Link to="/verify" onClick={() => setMenuOpen(false)}>Verify</Link>
             <Link to="/contact" onClick={() => setMenuOpen(false)}>Contact</Link>
+            <Link to="/franchise" onClick={() => setMenuOpen(false)}>Franchise</Link>
           </nav>
 
           <div className="header-actions">
@@ -45,7 +47,7 @@ export const PublicLayout = () => {
           </div>
 
           <button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)}>
-            {menuOpen ? <X size={24}/> : <Menu size={24}/>}
+            {menuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
       </header>

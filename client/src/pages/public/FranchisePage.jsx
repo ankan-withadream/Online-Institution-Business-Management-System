@@ -56,7 +56,7 @@ const FranchisePage = () => (
       </div>
 
       <div style={{ textAlign: 'center' }}>
-        <Link to="/register" className="btn btn-accent btn-lg">Apply for Franchise Partnership</Link>
+        <Link to="/franchise-apply" className="btn btn-accent btn-lg">Apply for Franchise Partnership</Link>
       </div>
     </div>
   </div>

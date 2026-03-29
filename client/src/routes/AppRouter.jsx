@@ -13,6 +13,7 @@ import Notices from '../pages/public/Notices';
 import Verify from '../pages/public/Verify';
 import FranchisePage from '../pages/public/FranchisePage';
 import AdmissionPage from '../pages/public/AdmissionPage';
+import FranchiseApplyPage from '../pages/public/FranchiseApplyPage';
 
 // Auth Pages
 import Login from '../pages/auth/Login';
@@ -54,6 +55,7 @@ const AppRouter = () => {
             <Route path="/notices" element={<Notices />} />
             <Route path="/verify" element={<Verify />} />
             <Route path="/franchise" element={<FranchisePage />} />
+            <Route path="/franchise-apply" element={<FranchiseApplyPage />} />
             <Route path="/admission" element={<AdmissionPage />} />
           </Route>
 
