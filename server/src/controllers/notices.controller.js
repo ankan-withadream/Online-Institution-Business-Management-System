@@ -33,9 +33,8 @@ export const getAll = async (req, res) => {
     if (!req.user || req.user.role !== 'admin') {
       query = query
         .eq('is_published', true)
-        .lte('publish_date', new Date().toISOString());
+      // .lte('publish_date', new Date().toISOString());
     }
-
     if (req.query.category) query = query.eq('category', req.query.category);
 
     const { data, error } = await query;
