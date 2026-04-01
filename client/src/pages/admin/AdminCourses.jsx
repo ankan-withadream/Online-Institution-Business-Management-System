@@ -112,7 +112,7 @@ const AdminCourses = () => {
           <h1>Manage Courses</h1>
           <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>Create, update, and manage student courses.</p>
         </div>
-        <button className="btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
           <Plus size={18} /> Add Course
         </button>
       </div>
@@ -196,177 +196,191 @@ const AdminCourses = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
-                <label>Course Name</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={handleNameChange}
-                  className="form-control"
-                  placeholder="e.g. Advanced Web Development"
-                />
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Course Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={handleNameChange}
+                    className="form-input"
+                    placeholder="e.g. Advanced Web Development"
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Slug</label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.slug}
+                    onChange={(e) => setFormData({...formData, slug: e.target.value})}
+                    className="form-input"
+                    placeholder="e.g. advanced-web-development"
+                  />
+                </div>
               </div>
 
               <div className="form-group">
-                <label>Slug</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.slug}
-                  onChange={(e) => setFormData({...formData, slug: e.target.value})}
-                  className="form-control"
-                  placeholder="e.g. advanced-web-development"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
+                <label className="form-label">Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  className="form-control"
+                  className="form-textarea"
                   rows="3"
                   placeholder="Course description..."
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Duration (Months)</label>
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Duration (Months)</label>
                   <input
                     type="number"
                     min="1"
                     required
                     value={formData.durationMonths}
                     onChange={(e) => setFormData({...formData, durationMonths: parseInt(e.target.value)})}
-                    className="form-control"
+                    className="form-input"
                   />
                 </div>
-
-                <div className="form-group" style={{ flex: 1 }}>
-                  <label>Fee (₹)</label>
+                <div className="form-group">
+                  <label className="form-label">Fee (₹)</label>
                   <input
                     type="number"
                     min="0"
                     required
                     value={formData.fee}
                     onChange={(e) => setFormData({...formData, fee: parseFloat(e.target.value)})}
-                    className="form-control"
+                    className="form-input"
                   />
                 </div>
               </div>
 
-              <div style={{ marginTop: '1rem', borderTop: '1px solid #e5e7eb', paddingTop: '1rem' }}>
+              <div className="card" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Subjects</h3>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Subjects</h3>
                   <button 
                     type="button" 
                     onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100 }] }))}
-                    className="btn-secondary"
-                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    className="btn btn-secondary btn-sm"
                   >
                     <Plus size={16} /> Add Subject
                   </button>
                 </div>
-                {formData.subjects.map((subject, index) => (
-                  <div key={index} style={{ background: '#f9fafb', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem', position: 'relative' }}>
-                    <button 
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, subjects: prev.subjects.filter((_, i) => i !== index) }))}
-                      style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem', marginTop: '1rem' }}>
-                      <div className="form-group" style={{ flex: 2 }}>
-                        <label style={{ fontSize: '0.875rem' }}>Subject Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={subject.name}
-                          onChange={(e) => {
-                            const newSubjects = [...formData.subjects];
-                            newSubjects[index].name = e.target.value;
-                            setFormData({ ...formData, subjects: newSubjects });
-                          }}
-                          className="form-control"
-                          placeholder="e.g. Mathematics"
-                        />
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {formData.subjects.map((subject, index) => (
+                    <div key={index} style={{ background: 'var(--gray-50)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--gray-200)', position: 'relative' }}>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, subjects: prev.subjects.filter((_, i) => i !== index) }))}
+                        style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--danger-500)', cursor: 'pointer', padding: '0.25rem' }}
+                        title="Remove Subject"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                      
+                      <div className="grid grid-3">
+                        <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                          <label className="form-label">Subject Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={subject.name}
+                            onChange={(e) => {
+                              const newSubjects = [...formData.subjects];
+                              newSubjects[index].name = e.target.value;
+                              setFormData({ ...formData, subjects: newSubjects });
+                            }}
+                            className="form-input"
+                            placeholder="e.g. Mathematics"
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Code</label>
+                          <input
+                            type="text"
+                            required
+                            value={subject.code}
+                            onChange={(e) => {
+                              const newSubjects = [...formData.subjects];
+                              newSubjects[index].code = e.target.value;
+                              setFormData({ ...formData, subjects: newSubjects });
+                            }}
+                            className="form-input"
+                            placeholder="e.g. MAT101"
+                          />
+                        </div>
                       </div>
-                      <div className="form-group" style={{ flex: 1 }}>
-                        <label style={{ fontSize: '0.875rem' }}>Code</label>
-                        <input
-                          type="text"
-                          required
-                          value={subject.code}
-                          onChange={(e) => {
-                            const newSubjects = [...formData.subjects];
-                            newSubjects[index].code = e.target.value;
-                            setFormData({ ...formData, subjects: newSubjects });
-                          }}
-                          className="form-control"
-                          placeholder="e.g. MAT101"
-                        />
-                      </div>
-                      <div className="form-group" style={{ flex: 1 }}>
-                        <label style={{ fontSize: '0.875rem' }}>Max Marks</label>
-                        <input
-                          type="number"
-                          required
-                          value={subject.maxMarks}
-                          onChange={(e) => {
-                            const newSubjects = [...formData.subjects];
-                            newSubjects[index].maxMarks = parseInt(e.target.value);
-                            setFormData({ ...formData, subjects: newSubjects });
-                          }}
-                          className="form-control"
-                          min="0"
-                        />
+                      
+                      <div className="grid grid-3" style={{ marginBottom: 0 }}>
+                        <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                          <label className="form-label">Description</label>
+                          <input
+                            type="text"
+                            value={subject.description}
+                            onChange={(e) => {
+                              const newSubjects = [...formData.subjects];
+                              newSubjects[index].description = e.target.value;
+                              setFormData({ ...formData, subjects: newSubjects });
+                            }}
+                            className="form-input"
+                            placeholder="Optional description"
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Max Marks</label>
+                          <input
+                            type="number"
+                            required
+                            value={subject.maxMarks}
+                            onChange={(e) => {
+                              const newSubjects = [...formData.subjects];
+                              newSubjects[index].maxMarks = parseInt(e.target.value);
+                              setFormData({ ...formData, subjects: newSubjects });
+                            }}
+                            className="form-input"
+                            min="0"
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="form-group">
-                      <label style={{ fontSize: '0.875rem' }}>Description</label>
-                      <input
-                        type="text"
-                        value={subject.description}
-                        onChange={(e) => {
-                          const newSubjects = [...formData.subjects];
-                          newSubjects[index].description = e.target.value;
-                          setFormData({ ...formData, subjects: newSubjects });
-                        }}
-                        className="form-control"
-                        placeholder="Optional description"
-                      />
+                  ))}
+                  
+                  {formData.subjects.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--gray-500)', background: 'var(--gray-50)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--gray-300)' }}>
+                      <BookOpen size={24} style={{ margin: '0 auto 0.5rem', opacity: 0.5 }} />
+                      <p style={{ fontSize: '0.875rem' }}>No subjects added yet. Add subjects for this course.</p>
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
 
-              <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem' }}>
                 <input
                   type="checkbox"
                   id="isActive"
                   checked={formData.isActive}
                   onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
-                  style={{ width: '1rem', height: '1rem' }}
+                  style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--primary-600)', cursor: 'pointer' }}
                 />
-                <label htmlFor="isActive" style={{ margin: 0, cursor: 'pointer' }}>Active Course</label>
+                <label htmlFor="isActive" className="form-label" style={{ margin: 0, cursor: 'pointer', fontSize: '1rem' }}>Active Course</label>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
                 <button 
                   type="button" 
                   onClick={handleCloseModal}
-                  className="btn-secondary"
+                  className="btn btn-secondary"
                   disabled={submitting}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="btn-primary"
+                  className="btn btn-primary"
                   disabled={submitting}
                 >
                   {submitting ? 'Saving...' : 'Save Course'}
