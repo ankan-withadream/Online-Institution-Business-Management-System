@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const AdminCourses = () => {
-  const { data: courses, loading, error, refetch } = useFetch('/courses');
+  const { data: courses, loading, error, refetch } = useFetch('/courses/admin/all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -156,7 +156,7 @@ const AdminCourses = () => {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button 
+                      <button
                         onClick={() => handleOpenModal(course)}
                         className="btn-icon"
                         title="Edit course"
@@ -164,7 +164,7 @@ const AdminCourses = () => {
                       >
                         <Edit2 size={18} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(course.id)}
                         className="btn-icon"
                         title="Delete course"
@@ -188,7 +188,7 @@ const AdminCourses = () => {
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
                 {editingCourse ? 'Edit Course' : 'Add New Course'}
               </h2>
-              <button 
+              <button
                 onClick={handleCloseModal}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
               >
@@ -215,7 +215,7 @@ const AdminCourses = () => {
                     type="text"
                     required
                     value={formData.slug}
-                    onChange={(e) => setFormData({...formData, slug: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
                     className="form-input"
                     placeholder="e.g. advanced-web-development"
                   />
@@ -226,7 +226,7 @@ const AdminCourses = () => {
                 <label className="form-label">Description</label>
                 <textarea
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="form-textarea"
                   rows="3"
                   placeholder="Course description..."
@@ -241,7 +241,7 @@ const AdminCourses = () => {
                     min="1"
                     required
                     value={formData.durationMonths}
-                    onChange={(e) => setFormData({...formData, durationMonths: parseInt(e.target.value)})}
+                    onChange={(e) => setFormData({ ...formData, durationMonths: parseInt(e.target.value) })}
                     className="form-input"
                   />
                 </div>
@@ -252,7 +252,7 @@ const AdminCourses = () => {
                     min="0"
                     required
                     value={formData.fee}
-                    onChange={(e) => setFormData({...formData, fee: parseFloat(e.target.value)})}
+                    onChange={(e) => setFormData({ ...formData, fee: parseFloat(e.target.value) })}
                     className="form-input"
                   />
                 </div>
@@ -261,19 +261,19 @@ const AdminCourses = () => {
               <div className="card" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Subjects</h3>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100 }] }))}
                     className="btn btn-secondary btn-sm"
                   >
                     <Plus size={16} /> Add Subject
                   </button>
                 </div>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {formData.subjects.map((subject, index) => (
                     <div key={index} style={{ background: 'var(--gray-50)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--gray-200)', position: 'relative' }}>
-                      <button 
+                      <button
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, subjects: prev.subjects.filter((_, i) => i !== index) }))}
                         style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--danger-500)', cursor: 'pointer', padding: '0.25rem' }}
@@ -281,7 +281,7 @@ const AdminCourses = () => {
                       >
                         <Trash2 size={18} />
                       </button>
-                      
+
                       <div className="grid grid-3">
                         <div className="form-group" style={{ gridColumn: 'span 2' }}>
                           <label className="form-label">Subject Name</label>
@@ -314,7 +314,7 @@ const AdminCourses = () => {
                           />
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-3" style={{ marginBottom: 0 }}>
                         <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
                           <label className="form-label">Description</label>
@@ -348,7 +348,7 @@ const AdminCourses = () => {
                       </div>
                     </div>
                   ))}
-                  
+
                   {formData.subjects.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--gray-500)', background: 'var(--gray-50)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--gray-300)' }}>
                       <BookOpen size={24} style={{ margin: '0 auto 0.5rem', opacity: 0.5 }} />
@@ -363,23 +363,23 @@ const AdminCourses = () => {
                   type="checkbox"
                   id="isActive"
                   checked={formData.isActive}
-                  onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                   style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--primary-600)', cursor: 'pointer' }}
                 />
                 <label htmlFor="isActive" className="form-label" style={{ margin: 0, cursor: 'pointer', fontSize: '1rem' }}>Active Course</label>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleCloseModal}
                   className="btn btn-secondary"
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary"
                   disabled={submitting}
                 >

@@ -12,6 +12,7 @@ router.get('/', noticesController.getAll);
 router.get('/:id', noticesController.getById);
 
 // Admin
+router.get('/admin/all', authenticate, authorize('admin'), noticesController.getAll);
 router.post('/', authenticate, authorize('admin'), validate(noticeSchema), noticesController.create);
 router.put('/:id', authenticate, authorize('admin'), validate(noticeSchema), noticesController.update);
 router.delete('/:id', authenticate, authorize('admin'), noticesController.remove);

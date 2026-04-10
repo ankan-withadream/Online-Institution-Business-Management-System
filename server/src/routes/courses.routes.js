@@ -12,6 +12,7 @@ router.get('/', coursesController.getAll);
 router.get('/:id', coursesController.getById);
 
 // Admin only
+router.get('/admin/all', authenticate, authorize('admin'), coursesController.getAll);
 router.post('/', authenticate, authorize('admin'), validate(courseSchema), coursesController.create);
 router.put('/:id', authenticate, authorize('admin'), validate(courseSchema), coursesController.update);
 router.delete('/:id', authenticate, authorize('admin'), coursesController.remove);

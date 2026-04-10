@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const AdminNotices = () => {
-  const { data: notices, loading, error, refetch } = useFetch('/notices');
+  const { data: notices, loading, error, refetch } = useFetch('/notices/admin/all');
   const { data: courses } = useFetch('/courses');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNotice, setEditingNotice] = useState(null);
@@ -64,7 +64,7 @@ const AdminNotices = () => {
         isPublished: formData.isPublished,
         targetAudience: formData.targetAudience,
       };
-      
+
       if (formData.publishDate) payload.publishDate = new Date(formData.publishDate).toISOString();
       if (formData.courseId) payload.courseId = formData.courseId;
 
@@ -160,7 +160,7 @@ const AdminNotices = () => {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button 
+                      <button
                         onClick={() => handleOpenModal(notice)}
                         className="btn-icon"
                         title="Edit notice"
@@ -168,7 +168,7 @@ const AdminNotices = () => {
                       >
                         <Edit2 size={18} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleDelete(notice.id)}
                         className="btn-icon"
                         title="Delete notice"
@@ -192,7 +192,7 @@ const AdminNotices = () => {
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
                 {editingNotice ? 'Edit Notice' : 'Add New Notice'}
               </h2>
-              <button 
+              <button
                 onClick={handleCloseModal}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
               >
@@ -207,7 +207,7 @@ const AdminNotices = () => {
                   type="text"
                   required
                   value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="form-input"
                   placeholder="e.g. Important Exam Update"
                 />
@@ -218,7 +218,7 @@ const AdminNotices = () => {
                 <textarea
                   required
                   value={formData.content}
-                  onChange={(e) => setFormData({...formData, content: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   className="form-textarea"
                   rows="4"
                   placeholder="Notice details..."
@@ -230,7 +230,7 @@ const AdminNotices = () => {
                   <label className="form-label">Category</label>
                   <select
                     value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="form-input"
                   >
                     <option value="general">General</option>
@@ -239,12 +239,12 @@ const AdminNotices = () => {
                     <option value="result">Result</option>
                   </select>
                 </div>
-                
+
                 <div className="form-group">
                   <label className="form-label">Target Audience</label>
                   <select
                     value={formData.targetAudience}
-                    onChange={(e) => setFormData({...formData, targetAudience: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, targetAudience: e.target.value })}
                     className="form-input"
                   >
                     <option value="all">All</option>
@@ -259,7 +259,7 @@ const AdminNotices = () => {
                   <label className="form-label">Target Course (Optional)</label>
                   <select
                     value={formData.courseId}
-                    onChange={(e) => setFormData({...formData, courseId: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, courseId: e.target.value })}
                     className="form-input"
                   >
                     <option value="">-- All Courses --</option>
@@ -274,7 +274,7 @@ const AdminNotices = () => {
                   <input
                     type="date"
                     value={formData.publishDate}
-                    onChange={(e) => setFormData({...formData, publishDate: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, publishDate: e.target.value })}
                     className="form-input"
                   />
                 </div>
@@ -285,23 +285,23 @@ const AdminNotices = () => {
                   type="checkbox"
                   id="isPublished"
                   checked={formData.isPublished}
-                  onChange={(e) => setFormData({...formData, isPublished: e.target.checked})}
+                  onChange={(e) => setFormData({ ...formData, isPublished: e.target.checked })}
                   style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--primary-600)', cursor: 'pointer' }}
                 />
-                <label htmlFor="isPublished" className="form-label" style={{ margin: 0, cursor: 'pointer', fontSize: '1rem' }}>Publish Immediately</label>
+                <label htmlFor="isPublished" className="form-label" style={{ margin: 0, cursor: 'pointer', fontSize: '1rem' }}>Published</label>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={handleCloseModal}
                   className="btn btn-secondary"
                   disabled={submitting}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn btn-primary"
                   disabled={submitting}
                 >

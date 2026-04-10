@@ -30,7 +30,9 @@ export const getAll = async (req, res) => {
       .order('created_at', { ascending: false });
 
     // Non-admin users only see published notices
+    console.log('req.user ? ');
     if (!req.user || req.user.role !== 'admin') {
+      console.log('not user or admin');
       query = query
         .eq('is_published', true)
       // .lte('publish_date', new Date().toISOString());

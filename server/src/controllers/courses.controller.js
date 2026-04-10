@@ -2,11 +2,15 @@ import { supabaseAdmin } from '../config/supabase.js';
 
 export const getAll = async (_req, res) => {
   try {
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('courses')
       .select('*, subjects(*)')
-      .eq('is_active', true)
       .order('created_at', { ascending: false });
+
+    if (!_req.user || _req.user.role !== 'admin') {
+      query = query.eq('is_active', true);
+    }
+    const { data, error } = await query;
 
     if (error) throw error;
     res.json(data);
@@ -91,16 +95,16 @@ export const update = async (req, res) => {
         .from('subjects')
         .select('id, code')
         .eq('course_id', req.params.id);
-      
+
       const incomingCodes = subjects.map(s => s.code);
       const codesToDelete = existingSubjects
-         ?.filter(es => !incomingCodes.includes(es.code))
-         .map(es => es.code) || [];
-      
+        ?.filter(es => !incomingCodes.includes(es.code))
+        .map(es => es.code) || [];
+
       if (codesToDelete.length > 0) {
-         await supabaseAdmin.from('subjects').delete().in('code', codesToDelete);
+        await supabaseAdmin.from('subjects').delete().in('code', codesToDelete);
       }
-      
+
       if (subjects.length > 0) {
         const parsedSubjects = subjects.map(s => ({
           course_id: req.params.id,
@@ -109,7 +113,7 @@ export const update = async (req, res) => {
           description: s.description,
           max_marks: s.maxMarks || s.max_marks || 100
         }));
-        
+
         const { error: subErr } = await supabaseAdmin.from('subjects').upsert(parsedSubjects, { onConflict: 'code' });
         if (subErr) throw subErr;
       }
