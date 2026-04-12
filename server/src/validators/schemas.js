@@ -53,6 +53,7 @@ export const courseSchema = z.object({
 export const examSchema = z.object({
   name: z.string().min(2),
   courseId: z.string().uuid(),
+  subjectId: z.string().uuid(),
   examDate: z.string(),
   startTime: z.string(),
   endTime: z.string(),

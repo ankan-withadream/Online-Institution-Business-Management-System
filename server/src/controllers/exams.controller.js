@@ -2,10 +2,11 @@ import { supabaseAdmin } from '../config/supabase.js';
 
 export const create = async (req, res) => {
   try {
-    const { name, courseId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
+    const { name, courseId, subjectId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
     const { data, error } = await supabaseAdmin.from('exams').insert({
       name,
       course_id: courseId,
+      subject_id: subjectId || null,
       exam_date: examDate,
       start_time: startTime,
       end_time: endTime,
@@ -26,7 +27,7 @@ export const getAll = async (req, res) => {
   try {
     let query = supabaseAdmin
       .from('exams')
-      .select('*, courses(name)')
+      .select('*, courses(name), subjects(name)')
       .order('exam_date', { ascending: true });
 
     if (req.query.courseId) query = query.eq('course_id', req.query.courseId);
@@ -58,7 +59,7 @@ export const getById = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('exams')
-      .select('*, courses(name)')
+      .select('*, courses(name), subjects(name)')
       .eq('id', req.params.id)
       .single();
 
@@ -72,12 +73,13 @@ export const getById = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
-    const { name, courseId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
+    const { name, courseId, subjectId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
     const { data, error } = await supabaseAdmin
       .from('exams')
       .update({
         name,
         course_id: courseId,
+        subject_id: subjectId || null,
         exam_date: examDate,
         start_time: startTime,
         end_time: endTime,

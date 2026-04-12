@@ -112,6 +112,7 @@ CREATE TABLE exams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   course_id UUID REFERENCES courses(id),
+  subject_id UUID REFERENCES subjects(id),
   exam_date DATE,
   start_time TIME,
   end_time TIME,
