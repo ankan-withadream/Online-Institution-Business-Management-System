@@ -68,6 +68,7 @@ export const resultSchema = z.object({
   marksObtained: z.number().min(0),
   grade: z.string().optional(),
   isPass: z.boolean(),
+  published: z.boolean().optional().default(false),
 });
 
 export const bulkResultSchema = z.object({

@@ -11,8 +11,11 @@ const router = Router();
 router.get('/verify/:code', resultsController.verify);
 
 // Admin
+router.get('/', authenticate, authorize('admin'), resultsController.getAll);
 router.post('/', authenticate, authorize('admin'), validate(resultSchema), resultsController.create);
 router.post('/bulk', authenticate, authorize('admin'), validate(bulkResultSchema), resultsController.bulkCreate);
+router.put('/:id', authenticate, authorize('admin'), validate(resultSchema), resultsController.update);
+router.delete('/:id', authenticate, authorize('admin'), resultsController.remove);
 router.patch('/:id/publish', authenticate, authorize('admin'), resultsController.publish);
 
 // Student / Admin

@@ -5,7 +5,7 @@ const generateVerificationCode = () => `RES-${crypto.randomBytes(4).toString('he
 
 export const create = async (req, res) => {
   try {
-    const { studentId, examId, subjectId, marksObtained, grade, isPass } = req.body;
+    const { studentId, examId, subjectId, marksObtained, grade, isPass, published } = req.body;
     const { data, error } = await supabaseAdmin.from('results').insert({
       student_id: studentId,
       exam_id: examId,
@@ -13,6 +13,7 @@ export const create = async (req, res) => {
       marks_obtained: marksObtained,
       grade,
       is_pass: isPass,
+      published,
       verification_code: generateVerificationCode(),
     }).select().single();
 
@@ -33,6 +34,7 @@ export const bulkCreate = async (req, res) => {
       marks_obtained: r.marksObtained,
       grade: r.grade,
       is_pass: r.isPass,
+      published: r.published,
       verification_code: generateVerificationCode(),
     }));
 
@@ -117,5 +119,65 @@ export const verify = async (req, res) => {
   } catch (err) {
     console.error('Verify result error:', err);
     res.status(500).json({ error: 'Verification failed' });
+  }
+};
+
+export const getAll = async (req, res) => {
+  try {
+    let query = supabaseAdmin
+      .from('results')
+      .select('*, students(student_id_number, users(full_name)), exams(name, course_id), subjects(name)')
+      .order('created_at', { ascending: false });
+
+    if (req.query.examId) {
+      query = query.eq('exam_id', req.query.examId);
+    }
+
+    // Also support getting by courseId if needed.
+    // Course filtering might require a different approach since course_id is in exams.
+    // For now we assume the frontend filters by examId effectively.
+
+    const { data, error } = await query;
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Get all results error:', err);
+    res.status(500).json({ error: 'Failed to fetch results' });
+  }
+};
+
+export const update = async (req, res) => {
+  try {
+    const { studentId, examId, subjectId, marksObtained, grade, isPass, published } = req.body;
+
+    const { data, error } = await supabaseAdmin.from('results').update({
+      student_id: studentId,
+      exam_id: examId,
+      subject_id: subjectId,
+      marks_obtained: marksObtained,
+      grade,
+      is_pass: isPass,
+      published,
+      updated_at: new Date().toISOString()
+    }).eq('id', req.params.id).select().single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Result not found' });
+
+    res.json(data);
+  } catch (err) {
+    console.error('Update result error:', err);
+    res.status(500).json({ error: 'Failed to update result' });
+  }
+};
+
+export const remove = async (req, res) => {
+  try {
+    const { error } = await supabaseAdmin.from('results').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ message: 'Result deleted' });
+  } catch (err) {
+    console.error('Delete result error:', err);
+    res.status(500).json({ error: 'Failed to delete result' });
   }
 };
