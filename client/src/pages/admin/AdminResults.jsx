@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Edit2, Trash2, X, FileText, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Edit2, Trash2, X, FileText, CheckCircle2, XCircle, Upload, Download } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -15,14 +15,19 @@ const AdminResults = () => {
 
   const { data: allStudents } = useFetch('/students');
   const { data: allExams } = useFetch('/exams');
-  
+
   const { data: results, loading: resultsLoading, error: resultsError, refetch: refetchResults } = useFetch(
     selectedExam ? `/results?examId=${selectedExam}` : '/results'
   );
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+
+  const fileInputRef = useRef(null);
+
   const [editingResult, setEditingResult] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     courseId: '',
     subjectId: '',
@@ -34,12 +39,17 @@ const AdminResults = () => {
     isPublished: false
   });
 
+  const [bulkFormData, setBulkFormData] = useState({
+    courseId: '',
+    subjectId: '',
+    examId: '',
+    file: null
+  });
+
   const handleOpenModal = (result = null) => {
     if (result) {
       setEditingResult(result);
-      
       const examCourseId = allExams?.find(e => e.id === result.exam_id)?.course_id || '';
-      
       setFormData({
         courseId: examCourseId,
         subjectId: result.subject_id || '',
@@ -66,9 +76,26 @@ const AdminResults = () => {
     setIsModalOpen(true);
   };
 
+  const handleOpenBulkModal = () => {
+    setBulkFormData({
+      courseId: selectedCourse || '',
+      subjectId: '',
+      examId: selectedExam || '',
+      file: null
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    setIsBulkModalOpen(true);
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingResult(null);
+  };
+
+  const handleCloseBulkModal = () => {
+    setIsBulkModalOpen(false);
+    setBulkFormData(prev => ({ ...prev, file: null }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
@@ -102,6 +129,79 @@ const AdminResults = () => {
     }
   };
 
+  const handleBulkSubmit = async (e) => {
+    e.preventDefault();
+    if (!bulkFormData.file) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+
+    setSubmitting(true);
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      try {
+        const text = event.target.result;
+        const lines = text.split('\n').filter(l => l.trim() !== '');
+        if (lines.length < 2) throw new Error('File is empty or missing data rows');
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const resultsToUpload = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          const row = {};
+          headers.forEach((h, index) => { row[h] = values[index]; });
+
+          const studentIdNumber = row['student id number'];
+          const student = allStudents?.find(s => s.student_id_number === studentIdNumber);
+
+          if (!student) {
+            throw new Error(`Student with ID ${studentIdNumber} not found on row ${i}`);
+          }
+          if (student.course_id !== bulkFormData.courseId) {
+            throw new Error(`Student ${studentIdNumber} is not enrolled in the selected course on row ${i}`);
+          }
+
+          resultsToUpload.push({
+            studentId: student.id,
+            examId: bulkFormData.examId,
+            subjectId: bulkFormData.subjectId || null,
+            marksObtained: Number(row['marks obtained']),
+            grade: row['grade'] || '',
+            isPass: String(row['is pass']).toLowerCase() === 'true',
+            published: String(row['published']).toLowerCase() === 'true'
+          });
+        }
+
+        await api.post('/results/bulk', { results: resultsToUpload });
+        toast.success(`Successfully uploaded ${resultsToUpload.length} results`);
+        handleCloseBulkModal();
+        refetchResults();
+      } catch (err) {
+        toast.error(err.response?.data?.error || err.message || 'Error processing CSV file');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    reader.onerror = () => {
+      toast.error('Failed to read the file');
+      setSubmitting(false);
+    };
+
+    reader.readAsText(bulkFormData.file);
+  };
+
+  const handleDownloadTemplate = () => {
+    const csvContent = "Student ID Number,Marks Obtained,Grade,Is Pass,Published\dd6d4d4a-953f-4b4d-a4d5-bedbb286fc3d,85.5,A,true,false\d1234d4a-953f-4b4d-a4d5-bedbb286fc3c,32.0,F,false,false";
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'bulk_results_template.csv';
+    link.click();
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this result?')) return;
 
@@ -118,9 +218,7 @@ const AdminResults = () => {
     if (!window.confirm(`Are you sure you want to ${result.published ? 'unpublish' : 'publish'} this result?`)) return;
 
     try {
-       // Since the backend has /results/:id/publish that sets it to true, updating directly via PUT is safer to toggle both ways, 
-       // but sending the full payload needs all data. We will use PUT with existing data.
-       const payload = {
+      const payload = {
         studentId: result.student_id,
         examId: result.exam_id,
         subjectId: result.subject_id,
@@ -138,6 +236,7 @@ const AdminResults = () => {
   };
 
   const modalCourseDetails = courses?.find(c => c.id === formData.courseId);
+  const bulkCourseDetails = courses?.find(c => c.id === bulkFormData.courseId);
 
   let filteredExams = allExams;
   if (formData.courseId) {
@@ -152,6 +251,14 @@ const AdminResults = () => {
     filteredStudents = filteredStudents?.filter(student => student.course_id === formData.courseId);
   }
 
+  let bulkFilteredExams = allExams;
+  if (bulkFormData.courseId) {
+    bulkFilteredExams = bulkFilteredExams?.filter(exam => exam.course_id === bulkFormData.courseId);
+  }
+  if (bulkFormData.subjectId) {
+    bulkFilteredExams = bulkFilteredExams?.filter(exam => exam.subject_id === bulkFormData.subjectId);
+  }
+
   return (
     <div className="admin-results">
       <div className="page-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -159,9 +266,14 @@ const AdminResults = () => {
           <h1>Results Management</h1>
           <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>View, upload, and manage student results for specific exams.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => handleOpenModal()}>
-          <Plus size={18} /> Create Result
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="btn btn-secondary" onClick={handleOpenBulkModal} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Upload size={18} /> Bulk Create
+          </button>
+          <button className="btn btn-primary" onClick={() => handleOpenModal()} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Plus size={18} /> Create Result
+          </button>
+        </div>
       </div>
 
       <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem' }}>
@@ -210,7 +322,6 @@ const AdminResults = () => {
           <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
             <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
             <p>No results found for the selected criteria. Create one to get started.</p>
-            <p style={{ marginTop: '0.5rem', fontSize: '0.875rem' }}>Use the API endpoint <code>POST /api/results/bulk</code> for bulk upload.</p>
           </div>
         ) : (
           <table className="data-table">
@@ -292,6 +403,127 @@ const AdminResults = () => {
         )}
       </div>
 
+      {/* Bulk Create Modal */}
+      {isBulkModalOpen && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '700px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Bulk Create Results</h2>
+              <button
+                onClick={handleCloseBulkModal}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleBulkSubmit}>
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Select Course</label>
+                  <select
+                    required
+                    value={bulkFormData.courseId}
+                    onChange={(e) => setBulkFormData(prev => ({
+                      ...prev,
+                      courseId: e.target.value,
+                      subjectId: '',
+                      examId: ''
+                    }))}
+                    className="form-input"
+                  >
+                    <option value="">-- Select Course --</option>
+                    {courses && courses.map(course => (
+                      <option key={course.id} value={course.id}>{course.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Select Subject</label>
+                  <select
+                    required
+                    value={bulkFormData.subjectId}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, subjectId: e.target.value, examId: '' })}
+                    className="form-input"
+                    disabled={!bulkFormData.courseId}
+                  >
+                    <option value="">-- Select Subject --</option>
+                    {bulkCourseDetails?.subjects?.map(subject => (
+                      <option key={subject.id} value={subject.id}>{subject.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Select Exam</label>
+                  <select
+                    required
+                    value={bulkFormData.examId}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, examId: e.target.value })}
+                    className="form-input"
+                    disabled={!bulkFormData.subjectId && !bulkFormData.courseId}
+                  >
+                    <option value="">-- Select Exam --</option>
+                    {bulkFilteredExams && bulkFilteredExams.map(exam => (
+                      <option key={exam.id} value={exam.id}>{exam.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="card" style={{ padding: '1.5rem', marginTop: '1rem', background: '#f9fafb', border: '1px dashed #d1d5db' }}>
+                <p style={{ fontSize: '0.875rem', color: '#4b5563', marginBottom: '1rem' }}>
+                  Please format your CSV file exactly according to the template header. Then upload it below.
+                </p>
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+                  <button type="button" onClick={handleDownloadTemplate} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Download size={16} /> Download CSV Template
+                  </button>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Upload CSV File</label>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    required
+                    ref={fileInputRef}
+                    onChange={(e) => setBulkFormData({ ...bulkFormData, file: e.target.files[0] })}
+                    className="form-input"
+                    style={{ padding: '0.5rem' }}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                    Maximum 100 results per upload.
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleCloseBulkModal}
+                  className="btn btn-secondary"
+                  disabled={submitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Uploading...' : 'Upload Results'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Single Create/Edit Modal */}
       {isModalOpen && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '700px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -314,8 +546,8 @@ const AdminResults = () => {
                   <select
                     required
                     value={formData.courseId}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
                       courseId: e.target.value,
                       subjectId: '',
                       examId: '',
@@ -423,7 +655,7 @@ const AdminResults = () => {
                     Student Passed
                   </label>
                 </div>
-                
+
                 <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem' }}>
                   <input
                     type="checkbox"
