@@ -7,6 +7,22 @@ export const create = async (req, res) => {
   try {
     const { studentId, courseId, issueDate, fileUrl } = req.body;
 
+    // Check if certificate already exists
+    const { data: existingCert, error: fetchError } = await supabaseAdmin
+      .from('certificates')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('course_id', courseId)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
+
+    if (existingCert) {
+      return res.status(200).json({ ...existingCert, isExisting: true });
+    }
+
     // Generate unique certificate number
     const year = new Date().getFullYear();
     const { count } = await supabaseAdmin
@@ -26,7 +42,7 @@ export const create = async (req, res) => {
     }).select().single();
 
     if (error) throw error;
-    res.status(201).json(data);
+    res.status(201).json({ ...data, isExisting: false });
   } catch (err) {
     console.error('Create certificate error:', err);
     res.status(500).json({ error: 'Failed to create certificate' });
