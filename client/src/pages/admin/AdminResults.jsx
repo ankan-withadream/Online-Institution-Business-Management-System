@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Plus, Edit2, Trash2, X, FileText, CheckCircle2, XCircle, Upload, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, FileText, CheckCircle2, XCircle, Upload, Download, Eye } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -22,6 +22,7 @@ const AdminResults = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [viewingResult, setViewingResult] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -379,6 +380,14 @@ const AdminResults = () => {
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                       <button
+                        onClick={() => setViewingResult(r)}
+                        className="btn-icon"
+                        title="View result"
+                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
                         onClick={() => handleOpenModal(r)}
                         className="btn-icon"
                         title="Edit result"
@@ -688,6 +697,69 @@ const AdminResults = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingResult && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Result Details</h2>
+              <button onClick={() => setViewingResult(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Student</div>
+                  <div style={{ fontWeight: 500 }}>{viewingResult.students?.users?.full_name || 'Unknown'}</div>
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>{viewingResult.students?.student_id_number || 'N/A'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Status</div>
+                  {viewingResult.is_pass ? (
+                    <span className="badge badge-success" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: 'fit-content' }}>
+                      <CheckCircle2 size={14} /> Passed
+                    </span>
+                  ) : (
+                    <span className="badge badge-error" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', width: 'fit-content' }}>
+                      <XCircle size={14} /> Failed
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Exam</div>
+                  <div>{viewingResult.exams?.name || '-'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Subject</div>
+                  <div>{viewingResult.subjects?.name || '-'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Marks Obtained</div>
+                  <div>{viewingResult.marks_obtained}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Grade</div>
+                  <div>{viewingResult.grade || '-'}</div>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Published</div>
+                <span className={`badge badge-${viewingResult.published ? 'info' : 'warning'}`}>
+                  {viewingResult.published ? 'Published' : 'Draft'}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button onClick={() => setViewingResult(null)} className="btn btn-secondary">Close</button>
+            </div>
           </div>
         </div>
       )}

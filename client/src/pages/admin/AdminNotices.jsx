@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, Bell } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Bell, Eye } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -9,6 +9,7 @@ const AdminNotices = () => {
   const { data: courses } = useFetch('/courses');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNotice, setEditingNotice] = useState(null);
+  const [viewingNotice, setViewingNotice] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
@@ -161,6 +162,14 @@ const AdminNotices = () => {
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                       <button
+                        onClick={() => setViewingNotice(notice)}
+                        className="btn-icon"
+                        title="View notice"
+                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
+                      >
+                        <Eye size={18} />
+                      </button>
+                      <button
                         onClick={() => handleOpenModal(notice)}
                         className="btn-icon"
                         title="Edit notice"
@@ -309,6 +318,62 @@ const AdminNotices = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingNotice && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Notice Details</h2>
+              <button onClick={() => setViewingNotice(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Title</div>
+                <div style={{ fontWeight: 500 }}>{viewingNotice.title}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Category</div>
+                  <span className={`badge badge-${viewingNotice.category === 'exam' ? 'warning' : viewingNotice.category === 'admission' ? 'success' : 'info'}`}>
+                    {viewingNotice.category}
+                  </span>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Status</div>
+                  <span className={`badge badge-${viewingNotice.is_published ? 'success' : 'neutral'}`}>
+                    {viewingNotice.is_published ? 'Published' : 'Draft'}
+                  </span>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Target Audience</div>
+                  <div style={{ textTransform: 'capitalize' }}>{viewingNotice.target_audience}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Publish Date</div>
+                  <div>{viewingNotice.publish_date ? new Date(viewingNotice.publish_date).toLocaleDateString() : '-'}</div>
+                </div>
+              </div>
+              {viewingNotice.courses && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Target Course</div>
+                  <div>{viewingNotice.courses.name}</div>
+                </div>
+              )}
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Content</div>
+                <div style={{ whiteSpace: 'pre-wrap', background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--gray-200)', fontSize: '0.875rem' }}>{viewingNotice.content}</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button onClick={() => setViewingNotice(null)} className="btn btn-secondary">Close</button>
+            </div>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, BookOpen } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, BookOpen, Eye } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
@@ -8,6 +8,7 @@ const AdminCourses = () => {
   const { data: courses, loading, error, refetch } = useFetch('/courses/admin/all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
+  const [viewingCourse, setViewingCourse] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -157,6 +158,14 @@ const AdminCourses = () => {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => setViewingCourse(course)}
+                        className="btn-icon"
+                        title="View course"
+                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
+                      >
+                        <Eye size={18} />
+                      </button>
                       <button
                         onClick={() => handleOpenModal(course)}
                         className="btn-icon"
@@ -403,6 +412,80 @@ const AdminCourses = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingCourse && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Course Details</h2>
+              <button onClick={() => setViewingCourse(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Course Name</div>
+                  <div style={{ fontWeight: 500 }}>{viewingCourse.name}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Slug</div>
+                  <code>{viewingCourse.slug}</code>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Duration</div>
+                  <div>{viewingCourse.duration_months} months</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Fee</div>
+                  <div>₹{viewingCourse.fee?.toLocaleString()}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Status</div>
+                  <span className={`badge badge-${viewingCourse.is_active ? 'success' : 'danger'}`}>{viewingCourse.is_active ? 'Active' : 'Inactive'}</span>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Subjects</div>
+                  <div>{viewingCourse.subjects?.length || 0} subject(s)</div>
+                </div>
+              </div>
+              {viewingCourse.description && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Description</div>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{viewingCourse.description}</div>
+                </div>
+              )}
+              {viewingCourse.subjects && viewingCourse.subjects.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Subject List</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {viewingCourse.subjects.map(s => (
+                      <div key={s.id} style={{ background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--gray-200)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <span style={{ fontWeight: 500 }}>{s.name}</span>
+                          <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#6b7280' }}>({s.code})</span>
+                          {s.description && <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{s.description}</div>}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#6b7280', textAlign: 'right' }}>
+                          <div>Sem {s.semester}</div>
+                          <div>{s.max_marks} marks</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button onClick={() => setViewingCourse(null)} className="btn btn-secondary">Close</button>
+            </div>
           </div>
         </div>
       )}

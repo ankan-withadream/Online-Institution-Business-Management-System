@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, X, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, FileText, Eye } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -11,6 +11,7 @@ const AdminExams = () => {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
+  const [viewingExam, setViewingExam] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -160,6 +161,14 @@ const AdminExams = () => {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => setViewingExam(e)}
+                        className="btn-icon"
+                        title="View exam"
+                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
+                      >
+                        <Eye size={18} />
+                      </button>
                       <button
                         onClick={() => handleOpenModal(e)}
                         className="btn-icon"
@@ -335,6 +344,64 @@ const AdminExams = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {viewingExam && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Exam Details</h2>
+              <button onClick={() => setViewingExam(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gap: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Exam Name</div>
+                <div style={{ fontWeight: 500 }}>{viewingExam.name}</div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Course</div>
+                  <div>{viewingExam.courses?.name || '-'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Subject</div>
+                  <div>{viewingExam.subjects?.name || '-'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Date</div>
+                  <div>{viewingExam.exam_date ? format(new Date(viewingExam.exam_date), 'PPP') : '-'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Time</div>
+                  <div>{viewingExam.start_time && viewingExam.end_time ? `${viewingExam.start_time} – ${viewingExam.end_time}` : '-'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Marks</div>
+                  <div>{viewingExam.total_marks}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Passing Marks</div>
+                  <div>{viewingExam.passing_marks}</div>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Status</div>
+                <span className={`badge badge-${viewingExam.status === 'completed' ? 'success' : viewingExam.status === 'scheduled' ? 'info' : 'warning'}`}>
+                  {viewingExam.status}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button onClick={() => setViewingExam(null)} className="btn btn-secondary">Close</button>
+            </div>
           </div>
         </div>
       )}
