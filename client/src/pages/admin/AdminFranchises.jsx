@@ -34,7 +34,7 @@ const AdminFranchises = () => {
                   <td>{f.city}, {f.state}</td>
                   <td><span className={`badge badge-${f.status === 'approved' ? 'success' : f.status === 'rejected' ? 'danger' : 'warning'}`}>{f.status}</span></td>
                   <td>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <button
                         onClick={() => setViewingFranchise(f)}
                         className="btn-icon"

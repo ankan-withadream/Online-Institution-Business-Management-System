@@ -36,7 +36,7 @@ const AdminAdmissions = () => {
                   <td><span className={`badge badge-${a.status === 'approved' ? 'success' : a.status === 'rejected' ? 'danger' : 'warning'}`}>{a.status}</span></td>
                   <td>{format(new Date(a.created_at), 'PP')}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <button
                         onClick={() => setViewingAdmission(a)}
                         className="btn-icon"

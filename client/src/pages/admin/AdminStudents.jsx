@@ -24,7 +24,6 @@ const AdminStudents = () => {
                   <td><span className={`badge badge-${s.status === 'active' ? 'success' : s.status === 'graduated' ? 'info' : 'danger'}`}>{s.status}</span></td>
                   <td>{s.enrollment_date && format(new Date(s.enrollment_date), 'PP')}</td>
                   <td>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <button
                         onClick={() => setViewingStudent(s)}
                         className="btn-icon"
@@ -33,7 +32,6 @@ const AdminStudents = () => {
                       >
                         <Eye size={18} />
                       </button>
-                    </div>
                   </td>
                 </tr>
               ))}
