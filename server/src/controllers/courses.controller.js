@@ -56,7 +56,8 @@ export const create = async (req, res) => {
         name: s.name,
         code: s.code,
         description: s.description,
-        max_marks: s.maxMarks || 100
+        max_marks: s.maxMarks || 100,
+        semester: s.semester || 1
       }));
       const { error: subErr } = await supabaseAdmin.from('subjects').insert(parsedSubjects);
       if (subErr) throw subErr;
@@ -111,7 +112,8 @@ export const update = async (req, res) => {
           name: s.name,
           code: s.code,
           description: s.description,
-          max_marks: s.maxMarks || s.max_marks || 100
+          max_marks: s.maxMarks || s.max_marks || 100,
+          semester: s.semester || 1
         }));
 
         const { error: subErr } = await supabaseAdmin.from('subjects').upsert(parsedSubjects, { onConflict: 'code' });

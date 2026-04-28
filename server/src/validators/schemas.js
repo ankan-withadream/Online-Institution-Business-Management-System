@@ -47,6 +47,7 @@ export const courseSchema = z.object({
     code: z.string().min(2),
     description: z.string().optional(),
     maxMarks: z.number().int().positive().optional().default(100),
+    semester: z.number().int().positive().optional().default(1),
   })).optional(),
 });
 
@@ -108,4 +109,5 @@ export const subjectSchema = z.object({
   description: z.string().optional(),
   courseId: z.string().uuid().optional(),
   maxMarks: z.number().int().positive(),
+  semester: z.number().int().positive(),
 });

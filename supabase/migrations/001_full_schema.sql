@@ -131,6 +131,7 @@ CREATE TABLE subjects (
   description TEXT NULL,
   course_id UUID REFERENCES courses(id),
   max_marks INTEGER,
+  semester INTEGER,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 

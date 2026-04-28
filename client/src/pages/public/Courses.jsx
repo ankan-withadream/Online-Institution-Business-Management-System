@@ -30,6 +30,19 @@ const Courses = () => {
               <p style={{ color: '#6b7280', fontSize: '0.875rem', flex: 1, lineHeight: 1.6 }}>
                 {course.description}
               </p>
+              
+              {course.subjects && course.subjects.length > 0 && (
+                <div style={{ marginTop: '1rem' }}>
+                  <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#4b5563', marginBottom: '0.5rem' }}>Subjects:</p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {course.subjects.map(sub => (
+                      <span key={sub.id} style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', background: '#f3f4f6', borderRadius: '4px', color: '#4b5563' }}>
+                        {sub.name} (Sem {sub.semester || 1})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #f3f4f6'

@@ -46,7 +46,8 @@ const AdminCourses = () => {
           name: s.name,
           code: s.code,
           description: s.description || '',
-          maxMarks: s.max_marks || 100
+          maxMarks: s.max_marks || 100,
+          semester: s.semester || 1
         })) : [],
       });
     } else {
@@ -263,7 +264,7 @@ const AdminCourses = () => {
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Subjects</h3>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100 }] }))}
+                    onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100, semester: 1 }] }))}
                     className="btn btn-secondary btn-sm"
                   >
                     <Plus size={16} /> Add Subject
@@ -316,7 +317,7 @@ const AdminCourses = () => {
                       </div>
 
                       <div className="grid grid-3" style={{ marginBottom: 0 }}>
-                        <div className="form-group" style={{ gridColumn: 'span 2', marginBottom: 0 }}>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label">Description</label>
                           <input
                             type="text"
@@ -343,6 +344,21 @@ const AdminCourses = () => {
                             }}
                             className="form-input"
                             min="0"
+                          />
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label className="form-label">Semester</label>
+                          <input
+                            type="number"
+                            required
+                            value={subject.semester}
+                            onChange={(e) => {
+                              const newSubjects = [...formData.subjects];
+                              newSubjects[index].semester = parseInt(e.target.value);
+                              setFormData({ ...formData, subjects: newSubjects });
+                            }}
+                            className="form-input"
+                            min="1"
                           />
                         </div>
                       </div>
