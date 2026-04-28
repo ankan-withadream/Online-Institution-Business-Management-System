@@ -101,43 +101,52 @@ const styles = StyleSheet.create({
 });
 
 const CertificateTemplate = ({ 
+  certificates = [],
   studentName, 
   courseName, 
   issueDate, 
   certificateCode 
-}) => (
-  <Document>
-    <Page size="A4" orientation="landscape" style={styles.page}>
-      <View style={styles.borderWrapper}>
-        <View style={styles.innerBorder}>
-          <Text style={styles.headerText}>Certificate of Completion</Text>
-          <Text style={styles.subHeader}>EDUCARE ACADEMY</Text>
-          
-          <Text style={styles.certifyText}>This is to proudly certify that</Text>
-          <Text style={styles.studentName}>{studentName}</Text>
-          
-          <Text style={styles.courseText}>has successfully completed the course requirements for</Text>
-          <Text style={styles.courseName}>{courseName}</Text>
-          
-          <View style={styles.footerSection}>
-            <View style={styles.signatureBlock}>
-              <View style={styles.signatureLine}></View>
-              <Text style={styles.signatureText}>Date: {issueDate}</Text>
-            </View>
-            <View style={styles.signatureBlock}>
-              <View style={styles.signatureLine}></View>
-              <Text style={styles.signatureText}>Authorized Signature</Text>
+}) => {
+  const certsToRender = certificates.length > 0 
+    ? certificates 
+    : [{ studentName, courseName, issueDate, certificateCode }];
+
+  return (
+    <Document>
+      {certsToRender.map((cert, index) => (
+        <Page key={index} size="A4" orientation="landscape" style={styles.page}>
+          <View style={styles.borderWrapper}>
+            <View style={styles.innerBorder}>
+              <Text style={styles.headerText}>Certificate of Completion</Text>
+              <Text style={styles.subHeader}>EDUCARE ACADEMY</Text>
+              
+              <Text style={styles.certifyText}>This is to proudly certify that</Text>
+              <Text style={styles.studentName}>{cert.studentName}</Text>
+              
+              <Text style={styles.courseText}>has successfully completed the course requirements for</Text>
+              <Text style={styles.courseName}>{cert.courseName}</Text>
+              
+              <View style={styles.footerSection}>
+                <View style={styles.signatureBlock}>
+                  <View style={styles.signatureLine}></View>
+                  <Text style={styles.signatureText}>Date: {cert.issueDate}</Text>
+                </View>
+                <View style={styles.signatureBlock}>
+                  <View style={styles.signatureLine}></View>
+                  <Text style={styles.signatureText}>Authorized Signature</Text>
+                </View>
+              </View>
+              
+              <View style={styles.metadataSection}>
+                <Text style={styles.metadataText}>Certificate ID: {cert.certificateCode}</Text>
+                <Text style={styles.metadataText}>Verify at: portal.educare.com/verify</Text>
+              </View>
             </View>
           </View>
-          
-          <View style={styles.metadataSection}>
-            <Text style={styles.metadataText}>Certificate ID: {certificateCode}</Text>
-            <Text style={styles.metadataText}>Verify at: portal.educare.com/verify</Text>
-          </View>
-        </View>
-      </View>
-    </Page>
-  </Document>
-);
+        </Page>
+      ))}
+    </Document>
+  );
+};
 
 export default CertificateTemplate;
