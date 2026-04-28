@@ -15,6 +15,7 @@ const adminNav = [
   { path: '/admin/results', label: 'Results', icon: Award },
   { path: '/admin/notices', label: 'Notices', icon: Bell },
   { path: '/admin/certificates', label: 'Certificates', icon: GraduationCap },
+  { path: '/admin/marksheets', label: 'Marksheets', icon: FileText },
   { path: '/admin/franchises', label: 'Franchises', icon: Building2 },
 ];
 

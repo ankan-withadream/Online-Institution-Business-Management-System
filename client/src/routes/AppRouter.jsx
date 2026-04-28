@@ -29,6 +29,7 @@ import AdminExams from '../pages/admin/AdminExams';
 import AdminResults from '../pages/admin/AdminResults';
 import AdminNotices from '../pages/admin/AdminNotices';
 import AdminCertificates from '../pages/admin/AdminCertificates';
+import AdminMarksheets from '../pages/admin/AdminMarksheets';
 import AdminFranchises from '../pages/admin/AdminFranchises';
 
 // Student Pages
@@ -78,6 +79,7 @@ const AppRouter = () => {
             <Route path="results" element={<AdminResults />} />
             <Route path="notices" element={<AdminNotices />} />
             <Route path="certificates" element={<AdminCertificates />} />
+            <Route path="marksheets" element={<AdminMarksheets />} />
             <Route path="franchises" element={<AdminFranchises />} />
           </Route>
 
