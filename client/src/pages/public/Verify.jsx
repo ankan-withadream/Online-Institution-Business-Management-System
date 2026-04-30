@@ -23,7 +23,8 @@ const Verify = () => {
         : `/students/verify/${trimmedCode}`;
       const { data } = await api.get(endpoint);
       setResult(data);
-    } catch {
+    } catch (err) {
+      console.error('Verification error:', err);
       setError('No matching record found. Please check your verification details.');
     } finally {
       setLoading(false);
@@ -31,7 +32,6 @@ const Verify = () => {
   };
 
   const isCertificate = type === 'certificate';
-  const isStudent = type === 'student';
   const certificateFileName = result?.studentId
     ? `Certificate_${result.studentId}.pdf`
     : 'Certificate.pdf';
@@ -97,9 +97,6 @@ const Verify = () => {
                 {isCertificate && result.issueDate && (
                   <div><strong>Issue Date:</strong> {result.issueDate}</div>
                 )}
-                {isStudent && result.enrollmentDate && (
-                  <div><strong>Enrollment Date:</strong> {result.enrollmentDate}</div>
-                )}
               </div>
             </div>
           )}
@@ -113,7 +110,7 @@ const Verify = () => {
                   className="btn btn-primary"
                   style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                 >
-                  {({ loading: downloadLoading }) => downloadLoading ? 'Preparing document...' : (
+                  {({ loading }) => loading ? 'Preparing document...' : (
                     <>
                       <Download size={18} /> Download PDF
                     </>

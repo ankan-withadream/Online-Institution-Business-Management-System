@@ -61,7 +61,7 @@ export const verify = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('students')
-      .select('student_id_number, enrollment_date, users(full_name), courses(name)')
+      .select('student_id_number, users(full_name), courses(name)')
       .eq('student_id_number', req.params.studentIdNumber)
       .single();
 
@@ -73,7 +73,6 @@ export const verify = async (req, res) => {
       studentName: data.users?.full_name,
       studentId: data.student_id_number,
       course: data.courses?.name,
-      enrollmentDate: data.enrollment_date,
     });
   } catch (err) {
     console.error('Verify student error:', err);
