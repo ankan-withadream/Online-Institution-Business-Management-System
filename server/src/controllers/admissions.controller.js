@@ -8,6 +8,8 @@ export const create = async (req, res) => {
       course_id: body.courseId,
       franchise_id: body.franchiseId || null,
       full_name: body.fullName,
+      father_name: body.fatherName || null,
+      mother_name: body.motherName || null,
       email: body.email,
       initial_password: body.password,
       phone: body.phone,
@@ -133,6 +135,8 @@ export const updateStatus = async (req, res) => {
           student_id_number: studentIdNumber,
           course_id: admission.course_id,
           franchise_id: admission.franchise_id,
+          father_name: admission.father_name,
+          mother_name: admission.mother_name,
           date_of_birth: admission.date_of_birth,
           gender: admission.gender,
           phone: admission.phone,
@@ -143,6 +147,9 @@ export const updateStatus = async (req, res) => {
           enrollment_date: new Date().toISOString().split('T')[0],
           status: 'active',
         });
+
+        // Update the admission with the generated user_id
+        await supabaseAdmin.from('admissions').update({ user_id: authData.user.id }).eq('id', req.params.id);
       }
     }
 

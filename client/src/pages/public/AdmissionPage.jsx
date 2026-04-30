@@ -3,21 +3,78 @@ import { useForm } from 'react-hook-form';
 import { CheckCircle } from 'lucide-react';
 import api from '../../services/api';
 import { useFetch } from '../../hooks/useFetch';
+import { uploadDocumentPublic } from '../../services/documents';
 
 const AdmissionPage = () => {
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const { data: courses } = useFetch('/courses');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const [files, setFiles] = useState({
+    applicant_photo: null,
+    aadhaar_card: null,
+    marksheet: null,
+    admit_card: null,
+    certificate: null,
+    caste_certificate: null,
+  });
+
+  const handleFileChange = (docType) => (e) => {
+    setFiles((prev) => ({ ...prev, [docType]: e.target.files?.[0] || null }));
+  };
 
   const onSubmit = async (data) => {
     setError('');
+    
+    // Check required files
+    const requiredFiles = ['applicant_photo', 'aadhaar_card', 'marksheet', 'admit_card', 'certificate'];
+    for (const reqFile of requiredFiles) {
+      if (!files[reqFile]) {
+        setError(`Please upload your ${reqFile.replace('_', ' ')}`);
+        return;
+      }
+    }
+
+    setLoading(true);
     try {
-      await api.post('/admissions', data);
+      const response = await api.post('/admissions', data);
+      const admissionId = response.data?.admission?.id;
+
+      if (admissionId) {
+        // Upload documents one by one via the public upload endpoint
+        for (const [docType, file] of Object.entries(files)) {
+          if (file) {
+            try {
+              await uploadDocumentPublic({
+                file,
+                entityType: 'admission',
+                entityId: admissionId,
+                documentType: docType,
+              });
+            } catch (uploadErr) {
+              console.error(`Failed to upload ${docType}:`, uploadErr);
+              // Not failing the whole process, but could alert the user
+            }
+          }
+        }
+      }
+
       setSubmitted(true);
       reset();
+      setFiles({
+        applicant_photo: null,
+        aadhaar_card: null,
+        marksheet: null,
+        admit_card: null,
+        certificate: null,
+        caste_certificate: null,
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Submission failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -57,6 +114,16 @@ const AdmissionPage = () => {
                 <label className="form-label">Email *</label>
                 <input className="form-input" type="email" {...register('email', { required: true })} />
                 {errors.email && <span className="form-error">Required</span>}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Father's Name *</label>
+                <input className="form-input" {...register('fatherName', { required: true, minLength: 2 })} />
+                {errors.fatherName && <span className="form-error">Required</span>}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mother's Name *</label>
+                <input className="form-input" {...register('motherName', { required: true, minLength: 2 })} />
+                {errors.motherName && <span className="form-error">Required</span>}
               </div>
               <div className="form-group">
                 <label className="form-label">Phone *</label>
@@ -123,8 +190,38 @@ const AdmissionPage = () => {
               </div>
             </div>
 
-            <button className="btn btn-primary btn-lg" type="submit" style={{ width: '100%', marginTop: '1rem' }}>
-              Submit Application
+            <h3 style={{ marginTop: '2rem', marginBottom: '1rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}>Upload Documents</h3>
+            <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>Please provide clear images of the following documents. Max size 5MB per file.</p>
+            
+            <div className="grid grid-2">
+              <div className="form-group">
+                <label className="form-label">Applicant Photo (Passport Size) *</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('applicant_photo')} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Aadhaar Card *</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('aadhaar_card')} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Madhyamik or HS Marksheet *</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('marksheet')} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Admit Card *</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('admit_card')} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Previous Certificate *</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('certificate')} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Caste Certificate (Optional)</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('caste_certificate')} />
+              </div>
+            </div>
+
+            <button className="btn btn-primary btn-lg" type="submit" style={{ width: '100%', marginTop: '2rem' }} disabled={loading}>
+              {loading ? 'Submitting...' : 'Submit Application'}
             </button>
           </form>
         </div>
