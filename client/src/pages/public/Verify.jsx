@@ -43,6 +43,12 @@ const Verify = () => {
         certificateCode: result.certificateNumber,
       }
     : null;
+  const previewContainerStyle = {
+    height: 520,
+    backgroundColor: '#e5e7eb',
+    padding: '0.75rem',
+    borderRadius: 12,
+  };
   const certificateViewerStyle = {
     border: 'none',
     borderRadius: '0.5rem',
@@ -52,7 +58,7 @@ const Verify = () => {
   return (
     <div className="section">
       <div className="container" style={{ maxWidth: 600, textAlign: 'center' }}>
-        <h1 className="section-title">Verify Certificate/Student</h1>
+        <h1 className="section-title">Verify Certificate or Student</h1>
         <p className="section-subtitle">Enter the verification code or student ID to validate authenticity</p>
 
         <div className="card" style={{ padding: '2rem', textAlign: 'left' }}>
@@ -122,7 +128,7 @@ const Verify = () => {
                   )}
                 </PDFDownloadLink>
               </div>
-              <div style={{ height: 520, backgroundColor: '#e5e7eb', padding: '0.75rem', borderRadius: 12 }}>
+              <div style={previewContainerStyle}>
                 <PDFViewer width="100%" height="100%" style={certificateViewerStyle}>
                   <CertificateTemplate {...certificateTemplateProps} />
                 </PDFViewer>
