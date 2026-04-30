@@ -5,6 +5,9 @@ import * as studentsController from '../controllers/students.controller.js';
 
 const router = Router();
 
+// Public — verify student by ID number
+router.get('/verify/:studentIdNumber', studentsController.verify);
+
 // Student sees own profile
 router.get('/me', authenticate, authorize('student'), studentsController.getMe);
 

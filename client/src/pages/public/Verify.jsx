@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Search, CheckCircle, XCircle } from 'lucide-react';
+import { Search, CheckCircle, XCircle, Download } from 'lucide-react';
+import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import api from '../../services/api';
+import CertificateTemplate from '../../components/pdf/CertificateTemplate';
 
 const Verify = () => {
   const [code, setCode] = useState('');
-  const [type, setType] = useState('result');
+  const [type, setType] = useState('certificate');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -15,36 +17,53 @@ const Verify = () => {
     setError('');
     setResult(null);
     try {
-      const endpoint = type === 'result' ? `/results/verify/${code}` : `/certificates/verify/${code}`;
+      const trimmedCode = code.trim();
+      const endpoint = type === 'certificate'
+        ? `/certificates/verify/${trimmedCode}`
+        : `/students/verify/${trimmedCode}`;
       const { data } = await api.get(endpoint);
       setResult(data);
     } catch {
-      setError('No matching record found. Please check your verification code.');
+      setError('No matching record found. Please check your verification details.');
     } finally {
       setLoading(false);
     }
   };
 
+  const isCertificate = type === 'certificate';
+  const isStudent = type === 'student';
+  const certificateFileName = result?.studentId
+    ? `Certificate_${result.studentId}.pdf`
+    : 'Certificate.pdf';
+  const certificateTemplateProps = result?.verified
+    ? {
+        studentName: result.studentName,
+        courseName: result.course,
+        issueDate: result.issueDate,
+        certificateCode: result.certificateNumber,
+      }
+    : null;
+
   return (
     <div className="section">
       <div className="container" style={{ maxWidth: 600, textAlign: 'center' }}>
-        <h1 className="section-title">Verify Certificate / Result</h1>
-        <p className="section-subtitle">Enter the verification code to validate authenticity</p>
+        <h1 className="section-title">Verify Certificate / Student</h1>
+        <p className="section-subtitle">Enter the verification code or student ID to validate authenticity</p>
 
         <div className="card" style={{ padding: '2rem', textAlign: 'left' }}>
           <form onSubmit={handleVerify}>
             <div className="form-group">
               <label className="form-label">Verification Type</label>
               <select className="form-select" value={type} onChange={e => setType(e.target.value)}>
-                <option value="result">Result</option>
                 <option value="certificate">Certificate</option>
+                <option value="student">Student</option>
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Verification Code</label>
+              <label className="form-label">{isCertificate ? 'Certificate Verification Code' : 'Student ID Number'}</label>
               <input
                 className="form-input"
-                placeholder="e.g. RES-A1B2C3D4 or CERT-A1B2C3D4"
+                placeholder={isCertificate ? 'e.g. CERT-A1B2C3D4' : 'e.g. STU-2026-0001'}
                 value={code}
                 onChange={e => setCode(e.target.value)}
                 required
@@ -71,13 +90,43 @@ const Verify = () => {
               <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
                 <div><strong>Student:</strong> {result.studentName}</div>
                 <div><strong>Student ID:</strong> {result.studentId}</div>
-                {result.exam && <div><strong>Exam:</strong> {result.exam}</div>}
-                {result.subject && <div><strong>Subject:</strong> {result.subject}</div>}
-                {result.marks !== undefined && <div><strong>Marks:</strong> {result.marks}</div>}
-                {result.grade && <div><strong>Grade:</strong> {result.grade}</div>}
                 {result.course && <div><strong>Course:</strong> {result.course}</div>}
-                {result.certificateNumber && <div><strong>Certificate:</strong> {result.certificateNumber}</div>}
-                {result.issueDate && <div><strong>Issue Date:</strong> {result.issueDate}</div>}
+                {isCertificate && result.certificateNumber && (
+                  <div><strong>Certificate:</strong> {result.certificateNumber}</div>
+                )}
+                {isCertificate && result.issueDate && (
+                  <div><strong>Issue Date:</strong> {result.issueDate}</div>
+                )}
+                {isStudent && result.enrollmentDate && (
+                  <div><strong>Enrollment Date:</strong> {result.enrollmentDate}</div>
+                )}
+                {isStudent && result.status && (
+                  <div><strong>Status:</strong> {result.status}</div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isCertificate && result?.verified && certificateTemplateProps && (
+            <div style={{ marginTop: '1.5rem', display: 'grid', gap: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <PDFDownloadLink
+                  document={<CertificateTemplate {...certificateTemplateProps} />}
+                  fileName={certificateFileName}
+                  className="btn btn-primary"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  {({ loading: downloadLoading }) => downloadLoading ? 'Preparing document...' : (
+                    <>
+                      <Download size={18} /> Download PDF
+                    </>
+                  )}
+                </PDFDownloadLink>
+              </div>
+              <div style={{ height: 520, backgroundColor: '#e5e7eb', padding: '0.75rem', borderRadius: 12 }}>
+                <PDFViewer width="100%" height="100%" style={{ border: 'none', borderRadius: '0.5rem', backgroundColor: '#fff' }}>
+                  <CertificateTemplate {...certificateTemplateProps} />
+                </PDFViewer>
               </div>
             </div>
           )}

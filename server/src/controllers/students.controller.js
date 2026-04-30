@@ -57,6 +57,30 @@ export const getById = async (req, res) => {
   }
 };
 
+export const verify = async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('students')
+      .select('student_id_number, enrollment_date, status, users(full_name), courses(name)')
+      .eq('student_id_number', req.params.studentIdNumber)
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Student not found' });
+
+    res.json({
+      verified: true,
+      studentName: data.users?.full_name,
+      studentId: data.student_id_number,
+      course: data.courses?.name,
+      enrollmentDate: data.enrollment_date,
+      status: data.status,
+    });
+  } catch (err) {
+    console.error('Verify student error:', err);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+};
+
 export const update = async (req, res) => {
   try {
     const updates = {};
