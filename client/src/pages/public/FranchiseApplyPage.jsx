@@ -16,6 +16,12 @@ const COURSE_CATEGORY_OPTIONS = [
   'Skill Development',
 ];
 
+const ensureArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  return [value];
+};
+
 const FranchiseApplyPage = () => {
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const { data: courses } = useFetch('/courses');
@@ -49,15 +55,19 @@ const FranchiseApplyPage = () => {
       return;
     }
 
-    setLoading(true);
     try {
-      // Remove confirmPassword before sending to API
       const { confirmPassword, courseCategories, courseIds, ...rest } = data;
-      void confirmPassword;
+      if (confirmPassword !== data.password) {
+        setError('Passwords do not match');
+        return;
+      }
+
+      setLoading(true);
+      // Remove confirmPassword before sending to API
       const submitData = {
         ...rest,
-        courseCategories: Array.isArray(courseCategories) ? courseCategories : courseCategories ? [courseCategories] : [],
-        courseIds: Array.isArray(courseIds) ? courseIds : courseIds ? [courseIds] : [],
+        courseCategories: ensureArray(courseCategories),
+        courseIds: ensureArray(courseIds),
       };
       const response = await api.post('/franchises/apply', submitData);
       const franchiseId = response.data?.franchise?.id;
@@ -207,22 +217,39 @@ const FranchiseApplyPage = () => {
             <div className="grid grid-2">
               <div className="form-group">
                 <label className="form-label">Course categories you want to run *</label>
-                <select className="form-select" multiple size={5} {...register('courseCategories', { required: true })}>
+                <select
+                  className="form-select"
+                  multiple
+                  size={5}
+                  aria-describedby="course-categories-hint"
+                  {...register('courseCategories', { required: true })}
+                >
                   {COURSE_CATEGORY_OPTIONS.map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
                 {errors.courseCategories && <span className="form-error">Select at least one</span>}
-                <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>Hold Ctrl/Cmd to select multiple.</p>
+                <p id="course-categories-hint" style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Hold Ctrl/Cmd to select multiple.
+                </p>
               </div>
               <div className="form-group">
                 <label className="form-label">Course names *</label>
-                <select className="form-select" multiple size={5} {...register('courseIds', { required: true })}>
+                <select
+                  className="form-select"
+                  multiple
+                  size={5}
+                  aria-describedby="course-names-hint"
+                  {...register('courseIds', { required: true })}
+                >
                   {courses?.map(course => (
                     <option key={course.id} value={course.id}>{course.name}</option>
                   ))}
                 </select>
                 {errors.courseIds && <span className="form-error">Select at least one</span>}
+                <p id="course-names-hint" style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                  Hold Ctrl/Cmd to select multiple.
+                </p>
               </div>
             </div>
 
