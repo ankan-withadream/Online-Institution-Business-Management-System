@@ -22,6 +22,8 @@ const ensureArray = (value) => {
   return [value];
 };
 
+const formatDocumentType = (value) => value.replace(/_/g, ' ');
+
 const FranchiseApplyPage = () => {
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const { data: courses } = useFetch('/courses');
@@ -57,14 +59,15 @@ const FranchiseApplyPage = () => {
       return;
     }
 
-    const { confirmPassword, courseCategories, courseIds, ...rest } = data;
-    if (confirmPassword !== data.password) {
+    const { confirmPassword, password, courseCategories, courseIds, ...rest } = data;
+    if (confirmPassword !== password) {
       setError('Passwords do not match');
       return;
     }
 
     const submitData = {
       ...rest,
+      password,
       courseCategories: ensureArray(courseCategories),
       courseIds: ensureArray(courseIds),
     };
@@ -127,7 +130,7 @@ const FranchiseApplyPage = () => {
             </p>
             {uploadFailures.length > 0 && (
               <div className="badge badge-warning" style={{ marginTop: '1rem', whiteSpace: 'normal' }}>
-                Some documents failed to upload: {uploadFailures.map(type => type.replace(/_/g, ' ')).join(', ')}.
+                Some documents failed to upload: {uploadFailures.map(formatDocumentType).join(', ')}.
               </div>
             )}
           </div>
