@@ -59,18 +59,17 @@ const FranchiseApplyPage = () => {
       return;
     }
 
-    const { confirmPassword, password, courseCategories, courseIds, ...rest } = data;
-    if (confirmPassword !== password) {
+    if (data.confirmPassword !== data.password) {
       setError('Passwords do not match');
       return;
     }
 
     const submitData = {
-      ...rest,
-      password,
-      courseCategories: ensureArray(courseCategories),
-      courseIds: ensureArray(courseIds),
+      ...data,
+      courseCategories: ensureArray(data.courseCategories),
+      courseIds: ensureArray(data.courseIds),
     };
+    delete submitData.confirmPassword;
 
     setLoading(true);
     try {
@@ -246,7 +245,7 @@ const FranchiseApplyPage = () => {
                 </select>
                 {errors.courseCategories && <span className="form-error">Select at least one</span>}
                 <p id="course-categories-hint" style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                  Hold Ctrl/Cmd to select multiple.
+                  Use keyboard arrows and Shift/Ctrl/Cmd keys to select multiple options.
                 </p>
               </div>
               <div className="form-group">
@@ -264,7 +263,7 @@ const FranchiseApplyPage = () => {
                 </select>
                 {errors.courseIds && <span className="form-error">Select at least one</span>}
                 <p id="course-names-hint" style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                  Hold Ctrl/Cmd to select multiple.
+                  Use keyboard arrows and Shift/Ctrl/Cmd keys to select multiple options.
                 </p>
               </div>
             </div>
