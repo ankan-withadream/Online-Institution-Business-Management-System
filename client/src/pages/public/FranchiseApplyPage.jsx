@@ -27,6 +27,7 @@ const FranchiseApplyPage = () => {
   const { data: courses } = useFetch('/courses');
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [uploadFailures, setUploadFailures] = useState([]);
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState({
     applicant_photo: null,
@@ -44,6 +45,7 @@ const FranchiseApplyPage = () => {
 
   const onSubmit = async (data) => {
     setError('');
+    setUploadFailures([]);
 
     if (!files.applicant_photo) {
       setError('Please upload the applicant photo');
@@ -55,24 +57,26 @@ const FranchiseApplyPage = () => {
       return;
     }
 
-    try {
-      const { confirmPassword, courseCategories, courseIds, ...rest } = data;
-      if (confirmPassword !== data.password) {
-        setError('Passwords do not match');
-        return;
-      }
+    const { confirmPassword, courseCategories, courseIds, ...rest } = data;
+    if (confirmPassword !== data.password) {
+      setError('Passwords do not match');
+      return;
+    }
 
-      setLoading(true);
+    const submitData = {
+      ...rest,
+      courseCategories: ensureArray(courseCategories),
+      courseIds: ensureArray(courseIds),
+    };
+
+    setLoading(true);
+    try {
       // Remove confirmPassword before sending to API
-      const submitData = {
-        ...rest,
-        courseCategories: ensureArray(courseCategories),
-        courseIds: ensureArray(courseIds),
-      };
       const response = await api.post('/franchises/apply', submitData);
       const franchiseId = response.data?.franchise?.id;
 
       if (franchiseId) {
+        const failedUploads = [];
         for (const [docType, file] of Object.entries(files)) {
           if (file) {
             try {
@@ -84,8 +88,12 @@ const FranchiseApplyPage = () => {
               });
             } catch (uploadErr) {
               console.error(`Failed to upload ${docType}:`, uploadErr);
+              failedUploads.push(docType);
             }
           }
+        }
+        if (failedUploads.length > 0) {
+          setUploadFailures(failedUploads);
         }
       }
 
@@ -117,6 +125,11 @@ const FranchiseApplyPage = () => {
             <p style={{ color: '#6b7280' }}>
               Your franchise application has been received. Our team will review it and get back to you shortly.
             </p>
+            {uploadFailures.length > 0 && (
+              <div className="badge badge-warning" style={{ marginTop: '1rem', whiteSpace: 'normal' }}>
+                Some documents failed to upload: {uploadFailures.map(type => type.replace(/_/g, ' ')).join(', ')}.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -301,11 +314,11 @@ const FranchiseApplyPage = () => {
             <div className="grid grid-2">
               <div className="form-group">
                 <label className="form-label">Applicant Photo *</label>
-                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('applicant_photo')} required />
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('applicant_photo')} />
               </div>
               <div className="form-group">
                 <label className="form-label">Aadhaar Card Photo *</label>
-                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('aadhaar_card')} required />
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('aadhaar_card')} />
               </div>
               <div className="form-group">
                 <label className="form-label">Voter ID Photo (Optional)</label>
