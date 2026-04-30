@@ -1,28 +1,55 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { uploadDocumentPublic } from '../../services/documents';
 import { GraduationCap, UserPlus } from 'lucide-react';
 
 const Register = () => {
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ fullName: '', email: '', password: '', confirmPassword: '', role: 'student' });
+  const [photoFile, setPhotoFile] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (form.password !== form.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
+    // if (form.password !== form.confirmPassword) {
+    //   setError('Passwords do not match');
+    //   return;
+    // }
+    // if (!photoFile) {
+    //   setError('Applicant photo is required');
+    //   return;
+    // }
     setError('');
     setLoading(true);
     try {
-      await registerUser(form.email, form.password, form.fullName, form.role);
+      // const result = await registerUser(form.email, form.password, form.fullName, form.role);
+      // const userId = result?.userId;
+
+      // if (userId) {
+      //   try {
+          await uploadDocumentPublic({
+            file: photoFile,
+            entityType: form.role,
+            entityId: "04701310-c107-4b62-8e6a-8c7816528a93",
+            documentType: 'applicant_photo',
+          });
+      //   } catch (uploadErr) {
+      //     console.error('Applicant photo upload failed:', uploadErr);
+      //     setError('Registration succeeded, but photo upload failed. Please sign in and upload again.');
+      //     return;
+      //   }
+      // }
+
       navigate('/login');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Registration failed');
+    // } catch (err) {
+    //   setError(err.response?.data?.error || 'Registration failed');
+            } catch (uploadErr) {
+          console.error('Applicant photo upload failed:', uploadErr);
+          setError('Registration succeeded, but photo upload failed. Please sign in and upload again.');
+          return;
     } finally {
       setLoading(false);
     }
@@ -65,6 +92,16 @@ const Register = () => {
               {/* <option value="student">Student</option> */}
               <option selected disabled value="franchise">Franchise Partner</option>
             </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Applicant photo (passport size)</label>
+            <input
+              className="form-input"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={e => setPhotoFile(e.target.files?.[0] || null)}
+              required
+            />
           </div>
           <button className="btn btn-primary" type="submit" style={{ width: '100%' }} disabled={loading}>
             <UserPlus size={16} /> {loading ? 'Creating...' : 'Create Account'}

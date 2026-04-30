@@ -91,6 +91,12 @@ Copy `.env.example` to `.env` and fill in your Supabase credentials:
 cp .env.example .env
 ```
 
+Add your Cloudflare R2 settings in `.env`:
+
+- Create an R2 bucket (example: `educare-documents`)
+- Create an R2 API token with read/write access to the bucket
+- Set `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_REGION`
+
 Also create `client/.env`:
 ```
 VITE_API_URL=http://localhost:5000/api

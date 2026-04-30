@@ -1,4 +1,31 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { buildR2Key, uploadBuffer, getDownloadUrl, deleteObject } from '../utils/r2.js';
+
+const ensureDocumentFields = (req) => {
+  const { entityType, entityId, documentType } = req.body;
+  if (!entityType || !entityId || !documentType) {
+    return { error: 'entityType, entityId, and documentType are required' };
+  }
+  return { entityType, entityId, documentType };
+};
+
+const createDocumentRecord = async ({ entityType, entityId, documentType, fileKey, originalName, uploadedBy }) => {
+  const { data, error } = await supabaseAdmin
+    .from('documents')
+    .insert({
+      entity_type: entityType,
+      entity_id: entityId,
+      document_type: documentType,
+      file_url: fileKey,
+      original_name: originalName,
+      uploaded_by: uploadedBy,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+};
 
 export const upload = async (req, res) => {
   try {
@@ -6,36 +33,64 @@ export const upload = async (req, res) => {
       return res.status(400).json({ error: 'No file provided' });
     }
 
-    const { entityType, entityId, documentType } = req.body;
-    if (!entityType || !entityId || !documentType) {
-      return res.status(400).json({ error: 'entityType, entityId, and documentType are required' });
+    const fields = ensureDocumentFields(req);
+    if (fields.error) {
+      return res.status(400).json({ error: fields.error });
     }
 
-    // Upload to Supabase Storage
-    const fileName = `${entityType}/${entityId}/${Date.now()}_${req.file.originalname}`;
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from('documents')
-      .upload(fileName, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: false,
-      });
+    const fileKey = buildR2Key(`${fields.entityType}/${fields.entityId}`, req.file.originalname);
+    await uploadBuffer({
+      key: fileKey,
+      buffer: req.file.buffer,
+      contentType: req.file.mimetype,
+    });
 
-    if (uploadError) throw uploadError;
+    const data = await createDocumentRecord({
+      entityType: fields.entityType,
+      entityId: fields.entityId,
+      documentType: fields.documentType,
+      fileKey,
+      originalName: req.file.originalname,
+      uploadedBy: req.user.id,
+    });
 
-    // Save document record in DB
-    const { data, error } = await supabaseAdmin.from('documents').insert({
-      entity_type: entityType,
-      entity_id: entityId,
-      document_type: documentType,
-      file_url: fileName,
-      original_name: req.file.originalname,
-      uploaded_by: req.user.id,
-    }).select().single();
-
-    if (error) throw error;
     res.status(201).json(data);
   } catch (err) {
     console.error('Upload document error:', err);
+    res.status(500).json({ error: 'Failed to upload document' });
+  }
+};
+
+export const uploadPublic = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file provided' });
+    }
+
+    const fields = ensureDocumentFields(req);
+    if (fields.error) {
+      return res.status(400).json({ error: fields.error });
+    }
+
+    const fileKey = buildR2Key(`${fields.entityType}/${fields.entityId}`, req.file.originalname);
+    await uploadBuffer({
+      key: fileKey,
+      buffer: req.file.buffer,
+      contentType: req.file.mimetype,
+    });
+
+    const data = await createDocumentRecord({
+      entityType: fields.entityType,
+      entityId: fields.entityId,
+      documentType: fields.documentType,
+      fileKey,
+      originalName: req.file.originalname,
+      uploadedBy: null,
+    });
+
+    res.status(201).json(data);
+  } catch (err) {
+    console.error('Public upload document error:', err);
     res.status(500).json({ error: 'Failed to upload document' });
   }
 };
@@ -50,12 +105,13 @@ export const getById = async (req, res) => {
 
     if (error || !data) return res.status(404).json({ error: 'Document not found' });
 
-    // Generate signed URL
-    const { data: signedUrl } = await supabaseAdmin.storage
-      .from('documents')
-      .createSignedUrl(data.file_url, 300);
+    const downloadUrl = await getDownloadUrl({
+      key: data.file_url,
+      expiresIn: 300,
+      downloadName: data.original_name || 'document',
+    });
 
-    res.json({ ...data, downloadUrl: signedUrl?.signedUrl });
+    res.json({ ...data, downloadUrl });
   } catch (err) {
     console.error('Get document error:', err);
     res.status(500).json({ error: 'Failed to fetch document' });
@@ -71,7 +127,7 @@ export const remove = async (req, res) => {
       .single();
 
     if (doc) {
-      await supabaseAdmin.storage.from('documents').remove([doc.file_url]);
+      await deleteObject(doc.file_url);
     }
 
     const { error } = await supabaseAdmin.from('documents').delete().eq('id', req.params.id);

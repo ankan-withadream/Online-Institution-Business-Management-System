@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { getDownloadUrl } from '../utils/r2.js';
 import crypto from 'crypto';
 
 const generateCertCode = () => `CERT-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
@@ -128,13 +129,13 @@ export const download = async (req, res) => {
       return res.status(404).json({ error: 'Certificate file not available' });
     }
 
-    // Generate signed URL for download
-    const { data: signedUrl, error: urlError } = await supabaseAdmin.storage
-      .from('certificates')
-      .createSignedUrl(data.file_url, 300); // 5 minute expiry
+    const downloadUrl = await getDownloadUrl({
+      key: data.file_url,
+      expiresIn: 300,
+      downloadName: 'certificate.pdf',
+    });
 
-    if (urlError) throw urlError;
-    res.json({ downloadUrl: signedUrl.signedUrl });
+    res.json({ downloadUrl });
   } catch (err) {
     console.error('Download certificate error:', err);
     res.status(500).json({ error: 'Failed to generate download link' });
