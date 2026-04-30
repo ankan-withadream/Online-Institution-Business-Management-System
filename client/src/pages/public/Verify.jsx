@@ -100,9 +100,6 @@ const Verify = () => {
                 {isStudent && result.enrollmentDate && (
                   <div><strong>Enrollment Date:</strong> {result.enrollmentDate}</div>
                 )}
-                {isStudent && result.status && (
-                  <div><strong>Status:</strong> {result.status}</div>
-                )}
               </div>
             </div>
           )}
