@@ -201,41 +201,6 @@ img { max-width: 100%; height: auto; }
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
 }
 
-.multi-select summary {
-  list-style: none;
-  cursor: pointer;
-}
-
-.multi-select summary::-webkit-details-marker {
-  display: none;
-}
-
-.multi-select[open] summary.form-select {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.multi-select-options {
-  border: 2px solid var(--gray-200);
-  border-top: none;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-  padding: var(--space-3);
-  background: white;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.multi-select-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--gray-700);
-}
-
 .form-error {
   font-size: var(--font-size-xs);
   color: var(--danger-500);

@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { CheckCircle } from 'lucide-react';
 import api from '../../services/api';
 import { useFetch } from '../../hooks/useFetch';
 import { uploadDocumentPublic } from '../../services/documents';
+import MultiSelect from '../../components/ui/MultiSelect';
 
 const COURSE_CATEGORY_OPTIONS = [
   'Nursing',
@@ -25,13 +26,15 @@ const ensureArray = (value) => {
 const formatDocumentType = (value) => value.replace(/_/g, ' ');
 
 const FranchiseApplyPage = () => {
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm({
+    defaultValues: {
+      courseCategories: [],
+      courseIds: [],
+    },
+  });
   const { data: courses } = useFetch('/courses');
-  const selectedCategories = ensureArray(watch('courseCategories'));
-  const selectedCourseIds = ensureArray(watch('courseIds'));
-  const selectedCourseNames = courses
-    ?.filter(course => selectedCourseIds.includes(course.id))
-    .map(course => course.name) || [];
+  const courseCategoryOptions = COURSE_CATEGORY_OPTIONS.map(option => ({ value: option, label: option }));
+  const courseOptions = courses?.map(course => ({ value: course.id, label: course.name })) || [];
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [uploadFailures, setUploadFailures] = useState([]);
@@ -235,39 +238,42 @@ const FranchiseApplyPage = () => {
             </div>
 
             <div className="grid grid-2">
-              <div className="form-group">
-                <label className="form-label">Course categories you want to run *</label>
-                <details className="multi-select">
-                  <summary className="form-select">
-                    {selectedCategories.length > 0 ? selectedCategories.join(', ') : 'Select categories'}
-                  </summary>
-                  <div className="multi-select-options">
-                    {COURSE_CATEGORY_OPTIONS.map(option => (
-                      <label className="multi-select-option" key={option}>
-                        <input type="checkbox" value={option} {...register('courseCategories', { required: true })} />
-                        <span>{option}</span>
-                      </label>
-                    ))}
-                  </div>
-                </details>
-                {errors.courseCategories && <span className="form-error">Select at least one</span>}
+              <div>
+                <Controller
+                  name="courseCategories"
+                  control={control}
+                  rules={{ validate: value => (value?.length > 0) || 'Select at least one' }}
+                  render={({ field }) => (
+                    <MultiSelect
+                      label="Course categories you want to run *"
+                      options={courseCategoryOptions}
+                      selected={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      placeholder="Select categories..."
+                    />
+                  )}
+                />
+                {errors.courseCategories && <span className="form-error">{errors.courseCategories.message}</span>}
               </div>
-              <div className="form-group">
-                <label className="form-label">Course names *</label>
-                <details className="multi-select">
-                  <summary className="form-select">
-                    {selectedCourseNames.length > 0 ? selectedCourseNames.join(', ') : 'Select courses'}
-                  </summary>
-                  <div className="multi-select-options">
-                    {courses?.map(course => (
-                      <label className="multi-select-option" key={course.id}>
-                        <input type="checkbox" value={course.id} {...register('courseIds', { required: true })} />
-                        <span>{course.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </details>
-                {errors.courseIds && <span className="form-error">Select at least one</span>}
+              <div>
+                <Controller
+                  name="courseIds"
+                  control={control}
+                  rules={{ validate: value => (value?.length > 0) || 'Select at least one' }}
+                  render={({ field }) => (
+                    <MultiSelect
+                      label="Course names *"
+                      options={courseOptions}
+                      selected={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      placeholder="Select courses..."
+                      disabled={courseOptions.length === 0}
+                    />
+                  )}
+                />
+                {errors.courseIds && <span className="form-error">{errors.courseIds.message}</span>}
               </div>
             </div>
 
