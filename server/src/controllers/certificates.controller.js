@@ -83,7 +83,7 @@ export const verify = async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('certificates')
       .select('*, students(student_id_number, users(full_name)), courses(name)')
-      .eq('verification_code', req.params.code)
+      .eq('certificate_number', req.params.code)
       .single();
 
     if (error || !data) return res.status(404).json({ error: 'Certificate not found' });

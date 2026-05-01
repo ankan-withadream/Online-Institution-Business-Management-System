@@ -37,11 +37,11 @@ const Verify = () => {
     : 'Certificate.pdf';
   const certificateTemplateProps = result?.verified
     ? {
-        studentName: result.studentName,
-        courseName: result.course,
-        issueDate: result.issueDate,
-        certificateCode: result.certificateNumber,
-      }
+      studentName: result.studentName,
+      courseName: result.course,
+      issueDate: result.issueDate,
+      certificateCode: result.certificateNumber,
+    }
     : null;
   const previewContainerStyle = {
     height: 520,
@@ -57,7 +57,7 @@ const Verify = () => {
 
   return (
     <div className="section">
-      <div className="container" style={{ maxWidth: 600, textAlign: 'center' }}>
+      <div className="container" style={{ maxWidth: 900, textAlign: 'center' }}>
         <h1 className="section-title">Verify Certificate or Student</h1>
         <p className="section-subtitle">Enter the verification code or student ID to validate authenticity</p>
 
@@ -101,6 +101,9 @@ const Verify = () => {
               <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
                 <div><strong>Student:</strong> {result.studentName}</div>
                 <div><strong>Student ID:</strong> {result.studentId}</div>
+                {!isCertificate && (
+                  <div><strong>Status:</strong> {result.status}</div>
+                )}
                 {result.course && <div><strong>Course:</strong> {result.course}</div>}
                 {isCertificate && result.certificateNumber && (
                   <div><strong>Certificate:</strong> {result.certificateNumber}</div>
