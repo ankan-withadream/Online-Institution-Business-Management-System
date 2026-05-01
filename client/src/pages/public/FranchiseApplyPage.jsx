@@ -27,6 +27,11 @@ const formatDocumentType = (value) => value.replace(/_/g, ' ');
 const FranchiseApplyPage = () => {
   const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
   const { data: courses } = useFetch('/courses');
+  const selectedCategories = ensureArray(watch('courseCategories'));
+  const selectedCourseIds = ensureArray(watch('courseIds'));
+  const selectedCourseNames = courses
+    ?.filter(course => selectedCourseIds.includes(course.id))
+    .map(course => course.name) || [];
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [uploadFailures, setUploadFailures] = useState([]);
@@ -232,39 +237,37 @@ const FranchiseApplyPage = () => {
             <div className="grid grid-2">
               <div className="form-group">
                 <label className="form-label">Course categories you want to run *</label>
-                <select
-                  className="form-select"
-                  multiple
-                  size={5}
-                  aria-describedby="course-categories-hint"
-                  {...register('courseCategories', { required: true })}
-                >
-                  {COURSE_CATEGORY_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
+                <details className="multi-select">
+                  <summary className="form-select">
+                    {selectedCategories.length > 0 ? selectedCategories.join(', ') : 'Select categories'}
+                  </summary>
+                  <div className="multi-select-options">
+                    {COURSE_CATEGORY_OPTIONS.map(option => (
+                      <label className="multi-select-option" key={option}>
+                        <input type="checkbox" value={option} {...register('courseCategories', { required: true })} />
+                        <span>{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
                 {errors.courseCategories && <span className="form-error">Select at least one</span>}
-                <p id="course-categories-hint" style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                  Use keyboard arrows and Shift/Ctrl/Cmd keys to select multiple options.
-                </p>
               </div>
               <div className="form-group">
                 <label className="form-label">Course names *</label>
-                <select
-                  className="form-select"
-                  multiple
-                  size={5}
-                  aria-describedby="course-names-hint"
-                  {...register('courseIds', { required: true })}
-                >
-                  {courses?.map(course => (
-                    <option key={course.id} value={course.id}>{course.name}</option>
-                  ))}
-                </select>
+                <details className="multi-select">
+                  <summary className="form-select">
+                    {selectedCourseNames.length > 0 ? selectedCourseNames.join(', ') : 'Select courses'}
+                  </summary>
+                  <div className="multi-select-options">
+                    {courses?.map(course => (
+                      <label className="multi-select-option" key={course.id}>
+                        <input type="checkbox" value={course.id} {...register('courseIds', { required: true })} />
+                        <span>{course.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </details>
                 {errors.courseIds && <span className="form-error">Select at least one</span>}
-                <p id="course-names-hint" style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                  Use keyboard arrows and Shift/Ctrl/Cmd keys to select multiple options.
-                </p>
               </div>
             </div>
 
