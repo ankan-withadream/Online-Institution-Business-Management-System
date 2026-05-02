@@ -1,112 +1,11 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { FileText, ChevronDown, X, Check, Users, ClipboardList, Download, Upload } from 'lucide-react';
+import { FileText, X, Users, ClipboardList, Download, Upload } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import MarksheetTemplate from '../../components/pdf/MarksheetTemplate';
+import MultiSelect from '../../components/ui/MultiSelect';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
-
-// ─── Reusable multi-select dropdown ───────────────────────
-const MultiSelect = ({ label, options, selected, onChange, placeholder, disabled, renderOption }) => {
-  const [open, setOpen] = useState(false);
-
-  const toggle = (value) => {
-    if (selected.includes(value)) {
-      onChange(selected.filter(v => v !== value));
-    } else {
-      onChange([...selected, value]);
-    }
-  };
-
-  const selectedLabels = options
-    .filter(o => selected.includes(o.value))
-    .map(o => o.label);
-
-  return (
-    <div className="form-group" style={{ margin: 0, position: 'relative', flex: 1 }}>
-      <label className="form-label">{label}</label>
-      <div
-        onClick={() => !disabled && setOpen(!open)}
-        className="form-input"
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          cursor: disabled ? 'not-allowed' : 'pointer', minHeight: '42px',
-          opacity: disabled ? 0.5 : 1, userSelect: 'none', flexWrap: 'wrap', gap: '0.25rem',
-          background: disabled ? 'var(--gray-100)' : undefined,
-        }}
-      >
-        {selectedLabels.length > 0 ? (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', flex: 1 }}>
-            {selectedLabels.map((lbl, i) => (
-              <span key={i} style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.25rem',
-                background: 'var(--primary-100, #dbeafe)', color: 'var(--primary-700, #1d4ed8)',
-                borderRadius: '4px', padding: '0.15rem 0.5rem', fontSize: '0.8rem', fontWeight: 500,
-              }}>
-                {lbl}
-                <X
-                  size={12}
-                  style={{ cursor: 'pointer' }}
-                  onClick={(e) => { e.stopPropagation(); toggle(options.find(o => o.label === lbl)?.value); }}
-                />
-              </span>
-            ))}
-          </div>
-        ) : (
-          <span style={{ color: '#9ca3af' }}>{placeholder}</span>
-        )}
-        <ChevronDown size={16} style={{ flexShrink: 0, transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'none' }} />
-      </div>
-      {open && (
-        <>
-          <div
-            style={{ position: 'fixed', inset: 0, zIndex: 40 }}
-            onClick={() => setOpen(false)}
-          />
-          <div style={{
-            position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 50,
-            background: '#fff', border: '1px solid var(--gray-200)', borderRadius: '0.5rem',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.12)', maxHeight: '220px', overflowY: 'auto',
-            marginTop: '4px',
-          }}>
-            {options.length === 0 ? (
-              <div style={{ padding: '0.75rem 1rem', color: '#9ca3af', fontSize: '0.875rem' }}>No options available</div>
-            ) : (
-              options.map(opt => (
-                <div
-                  key={opt.value}
-                  onClick={() => toggle(opt.value)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '0.5rem',
-                    padding: '0.6rem 1rem', cursor: 'pointer', fontSize: '0.875rem',
-                    background: selected.includes(opt.value) ? 'var(--primary-50, #eff6ff)' : 'transparent',
-                    borderBottom: '1px solid #f3f4f6',
-                    transition: 'background 0.15s',
-                  }}
-                  onMouseEnter={e => { if (!selected.includes(opt.value)) e.currentTarget.style.background = '#f9fafb'; }}
-                  onMouseLeave={e => { if (!selected.includes(opt.value)) e.currentTarget.style.background = 'transparent'; }}
-                >
-                  <div style={{
-                    width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
-                    border: selected.includes(opt.value) ? '2px solid var(--primary-600, #2563eb)' : '2px solid #d1d5db',
-                    background: selected.includes(opt.value) ? 'var(--primary-600, #2563eb)' : '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'all 0.15s',
-                  }}>
-                    {selected.includes(opt.value) && <Check size={12} color="#fff" />}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {renderOption ? renderOption(opt) : opt.label}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
 
 // ─── Main Component ──────────────────────────────────────
 const AdminMarksheets = () => {

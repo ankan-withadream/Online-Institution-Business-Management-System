@@ -1,23 +1,127 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { CheckCircle } from 'lucide-react';
 import api from '../../services/api';
+import { useFetch } from '../../hooks/useFetch';
+import { uploadDocumentPublic } from '../../services/documents';
+import MultiSelect from '../../components/ui/MultiSelect';
+
+const COURSE_CATEGORY_OPTIONS = [
+  'Nursing',
+  'Paramedical',
+  'Allied Health',
+  'Medical Laboratory',
+  'Radiology & Imaging',
+  'Emergency & Trauma Care',
+  'Healthcare Management',
+  'Skill Development',
+];
+
+const ensureArray = (value) => {
+  if (Array.isArray(value)) return value;
+  if (!value) return [];
+  return [value];
+};
+
+const formatDocumentType = (value) => value.replace(/_/g, ' ');
 
 const FranchiseApplyPage = () => {
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, watch, control, formState: { errors } } = useForm({
+    defaultValues: {
+      courseCategories: [],
+      courseIds: [],
+    },
+  });
+  const { data: courses } = useFetch('/courses');
+  const courseCategoryOptions = COURSE_CATEGORY_OPTIONS.map(option => ({ value: option, label: option }));
+  const courseOptions = courses?.map(course => ({ value: course.id, label: course.name })) || [];
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+  const [uploadFailures, setUploadFailures] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [files, setFiles] = useState({
+    applicant_photo: null,
+    aadhaar_card: null,
+    voter_id: null,
+    driving_license: null,
+    building_agreement: null,
+    teaching_facility_photo: null,
+    classroom_facility_photo: null,
+  });
+
+  const handleFileChange = (docType) => (e) => {
+    setFiles((prev) => ({ ...prev, [docType]: e.target.files?.[0] || null }));
+  };
 
   const onSubmit = async (data) => {
     setError('');
+    setUploadFailures([]);
+
+    if (!files.applicant_photo) {
+      setError('Please upload the applicant photo');
+      return;
+    }
+
+    if (!files.aadhaar_card) {
+      setError('Please upload the Aadhaar card photo');
+      return;
+    }
+
+    if (data.confirmPassword !== data.password) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    const submitData = {
+      ...data,
+      courseCategories: ensureArray(data.courseCategories),
+      courseIds: ensureArray(data.courseIds),
+    };
+    delete submitData.confirmPassword;
+
+    setLoading(true);
     try {
       // Remove confirmPassword before sending to API
-      const { confirmPassword, ...submitData } = data;
-      await api.post('/franchises/apply', submitData);
+      const response = await api.post('/franchises/apply', submitData);
+      const franchiseId = response.data?.franchise?.id;
+
+      if (franchiseId) {
+        const failedUploads = [];
+        for (const [docType, file] of Object.entries(files)) {
+          if (file) {
+            try {
+              await uploadDocumentPublic({
+                file,
+                entityType: 'franchise',
+                entityId: franchiseId,
+                documentType: docType,
+              });
+            } catch (uploadErr) {
+              console.error(`Failed to upload ${docType}:`, uploadErr);
+              failedUploads.push(docType);
+            }
+          }
+        }
+        if (failedUploads.length > 0) {
+          setUploadFailures(failedUploads);
+        }
+      }
+
       setSubmitted(true);
       reset();
+      setFiles({
+        applicant_photo: null,
+        aadhaar_card: null,
+        voter_id: null,
+        driving_license: null,
+        building_agreement: null,
+        teaching_facility_photo: null,
+        classroom_facility_photo: null,
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Submission failed');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -31,6 +135,11 @@ const FranchiseApplyPage = () => {
             <p style={{ color: '#6b7280' }}>
               Your franchise application has been received. Our team will review it and get back to you shortly.
             </p>
+            {uploadFailures.length > 0 && (
+              <div className="badge badge-warning" style={{ marginTop: '1rem', whiteSpace: 'normal' }}>
+                Some documents failed to upload: {uploadFailures.map(formatDocumentType).join(', ')}.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -105,8 +214,139 @@ const FranchiseApplyPage = () => {
               </div>
             </div>
 
-            <button className="btn btn-primary btn-lg" type="submit" style={{ width: '100%', marginTop: '1rem' }}>
-              Submit Application
+            <h3 style={{ marginTop: '2rem', marginBottom: '1rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}>Facility & Course Details</h3>
+
+            <div className="grid grid-2">
+              <div className="form-group">
+                <label className="form-label">Do you have any building or rental? *</label>
+                <select className="form-select" {...register('hasBuildingOrRental', { required: true })}>
+                  <option value="">Select</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+                {errors.hasBuildingOrRental && <span className="form-error">Required</span>}
+              </div>
+              <div className="form-group">
+                <label className="form-label">Do you have experience in education & training? *</label>
+                <select className="form-select" {...register('hasEducationExperience', { required: true })}>
+                  <option value="">Select</option>
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+                {errors.hasEducationExperience && <span className="form-error">Required</span>}
+              </div>
+            </div>
+
+            <div className="grid grid-2">
+              <div>
+                <Controller
+                  name="courseCategories"
+                  control={control}
+                  rules={{ validate: value => (value?.length > 0) || 'Select at least one' }}
+                  render={({ field }) => (
+                    <MultiSelect
+                      label="Course categories you want to run *"
+                      options={courseCategoryOptions}
+                      selected={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      placeholder="Select categories..."
+                    />
+                  )}
+                />
+                {errors.courseCategories && <span className="form-error">{errors.courseCategories.message}</span>}
+              </div>
+              <div>
+                <Controller
+                  name="courseIds"
+                  control={control}
+                  rules={{ validate: value => (value?.length > 0) || 'Select at least one' }}
+                  render={({ field }) => (
+                    <MultiSelect
+                      label="Course names *"
+                      options={courseOptions}
+                      selected={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      placeholder="Select courses..."
+                      disabled={courseOptions.length === 0}
+                    />
+                  )}
+                />
+                {errors.courseIds && <span className="form-error">{errors.courseIds.message}</span>}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Details regarding teaching facility *</label>
+              <textarea
+                className="form-input"
+                rows={4}
+                placeholder="Example: 3 trainers, 1 lab instructor, smart board, 20 desktops with internet access."
+                {...register('teachingFacilityDetails', { required: true, minLength: 10 })}
+              />
+              {errors.teachingFacilityDetails && <span className="form-error">Please share details (min 10 chars)</span>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Teaching facility photo (optional)</label>
+              <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('teaching_facility_photo')} />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Details regarding classrooms and facilities *</label>
+              <textarea
+                className="form-input"
+                rows={4}
+                placeholder="Example: 4 classrooms (30 seats each), skills lab, library corner, washrooms, power backup."
+                {...register('classroomFacilityDetails', { required: true, minLength: 10 })}
+              />
+              {errors.classroomFacilityDetails && <span className="form-error">Please share details (min 10 chars)</span>}
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Classroom/facility photo (optional)</label>
+              <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('classroom_facility_photo')} />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Any other relevant information</label>
+              <textarea
+                className="form-input"
+                rows={3}
+                placeholder="Example: Planned partnerships, staffing details, or other notes."
+                {...register('otherInformation')}
+              />
+            </div>
+
+            <h3 style={{ marginTop: '2rem', marginBottom: '1rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}>Upload Documents</h3>
+            <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '1rem' }}>Please provide clear images/PDFs. Max size 5MB per file.</p>
+
+            <div className="grid grid-2">
+              <div className="form-group">
+                <label className="form-label">Applicant Photo *</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('applicant_photo')} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Aadhaar Card Photo *</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('aadhaar_card')} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Voter ID Photo (Optional)</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('voter_id')} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Driving License Photo (Optional)</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('driving_license')} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Building Agreement / Rental Agreement (Optional)</label>
+                <input className="form-input" type="file" accept="image/*,application/pdf" onChange={handleFileChange('building_agreement')} />
+              </div>
+            </div>
+
+            <button className="btn btn-primary btn-lg" type="submit" style={{ width: '100%', marginTop: '1.5rem' }} disabled={loading}>
+              {loading ? 'Submitting...' : 'Submit Application'}
             </button>
           </form>
         </div>

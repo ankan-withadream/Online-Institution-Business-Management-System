@@ -98,6 +98,13 @@ export const franchiseApplySchema = z.object({
   city: z.string().min(2),
   state: z.string().min(2),
   pincode: z.string().min(6).max(6),
+  hasBuildingOrRental: z.enum(['yes', 'no']),
+  hasEducationExperience: z.enum(['yes', 'no']),
+  courseCategories: z.array(z.string().min(1)).min(1),
+  courseIds: z.array(z.string().uuid()).min(1),
+  teachingFacilityDetails: z.string().min(10),
+  classroomFacilityDetails: z.string().min(10),
+  otherInformation: z.string().optional(),
 });
 
 export const statusUpdateSchema = z.object({

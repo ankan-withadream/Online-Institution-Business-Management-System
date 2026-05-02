@@ -13,6 +13,13 @@ export const apply = async (req, res) => {
       city: body.city,
       state: body.state,
       pincode: body.pincode,
+      has_building_or_rental: body.hasBuildingOrRental,
+      has_education_experience: body.hasEducationExperience,
+      course_categories: body.courseCategories,
+      course_ids: body.courseIds,
+      teaching_facility_details: body.teachingFacilityDetails,
+      classroom_facility_details: body.classroomFacilityDetails,
+      other_information: body.otherInformation,
       status: 'pending',
     }).select().single();
 
