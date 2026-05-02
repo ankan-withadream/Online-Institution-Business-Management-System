@@ -83,6 +83,16 @@ export const getDownloadUrl = async ({ key, expiresIn = 300, downloadName }) => 
   return getSignedUrl(r2Client, command, { expiresIn });
 };
 
+export const getPreviewUrl = async ({ key, expiresIn = 300 }) => {
+  const command = new GetObjectCommand({
+    Bucket: env.R2_BUCKET,
+    Key: key,
+    ResponseContentDisposition: 'inline',
+  });
+
+  return getSignedUrl(r2Client, command, { expiresIn });
+};
+
 export const deleteObject = async (key) => {
   const command = new DeleteObjectCommand({
     Bucket: env.R2_BUCKET,

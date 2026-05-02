@@ -1,12 +1,34 @@
 import { useFetch } from '../../hooks/useFetch';
-import { useState } from 'react';
-import { Eye, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Eye, X, FileText, Download, Image as ImageIcon } from 'lucide-react';
 import api from '../../services/api';
 
 const AdminFranchises = () => {
   const { data: franchises, loading, refetch } = useFetch('/franchises');
   const [processing, setProcessing] = useState(null);
   const [viewingFranchise, setViewingFranchise] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [previewDocId, setPreviewDocId] = useState(null);
+
+  useEffect(() => {
+    if (viewingFranchise) {
+      const fetchDocs = async () => {
+        setLoadingDocs(true);
+        try {
+          const res = await api.get(`/documents/entity/franchise/${viewingFranchise.id}`);
+          setDocuments(res.data);
+        } catch (err) {
+          console.error('Failed to fetch documents', err);
+        } finally {
+          setLoadingDocs(false);
+        }
+      };
+      fetchDocs();
+    } else {
+      setDocuments([]);
+    }
+  }, [viewingFranchise]);
 
   const handleStatus = async (id, status) => {
     setProcessing(id);
@@ -103,20 +125,104 @@ const AdminFranchises = () => {
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Address</div>
                   <div>{viewingFranchise.address}</div>
+                  <div style={{ marginTop: '0.25rem', color: '#4b5563' }}>
+                    {[viewingFranchise.city, viewingFranchise.state, viewingFranchise.pincode].filter(Boolean).join(', ')}
+                  </div>
                 </div>
               )}
-              {viewingFranchise.pincode && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Pincode</div>
-                  <div>{viewingFranchise.pincode}</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Has Building/Rental</div>
+                  <div style={{ textTransform: 'capitalize' }}>{viewingFranchise.has_building_or_rental || '-'}</div>
                 </div>
-              )}
-              {viewingFranchise.message && (
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Message</div>
-                  <div style={{ whiteSpace: 'pre-wrap' }}>{viewingFranchise.message}</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Education Experience</div>
+                  <div style={{ textTransform: 'capitalize' }}>{viewingFranchise.has_education_experience || '-'}</div>
+                </div>
+              </div>
+              {viewingFranchise.course_categories && viewingFranchise.course_categories.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Course Categories</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {viewingFranchise.course_categories.map((cat, idx) => (
+                      <span key={idx} style={{ background: '#f3f4f6', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.875rem' }}>{cat}</span>
+                    ))}
+                  </div>
                 </div>
               )}
+              {viewingFranchise.teaching_facility_details && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Teaching Facility Details</div>
+                  <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{viewingFranchise.teaching_facility_details}</div>
+                </div>
+              )}
+              {viewingFranchise.classroom_facility_details && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Classroom Facility Details</div>
+                  <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{viewingFranchise.classroom_facility_details}</div>
+                </div>
+              )}
+              {viewingFranchise.other_information && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Other Information</div>
+                  <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>{viewingFranchise.other_information}</div>
+                </div>
+              )}
+
+              <div style={{ marginTop: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--gray-200)' }}>Documents & Images</h3>
+                {loadingDocs ? (
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Loading documents...</div>
+                ) : documents.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    {documents.map((doc) => {
+                      const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.original_name || doc.file_url);
+                      const isPdf = /\.pdf$/i.test(doc.original_name || doc.file_url);
+                      const isPreviewing = previewDocId === doc.id;
+
+                      return (
+                        <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--gray-200)', borderRadius: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              {isImage ? <ImageIcon size={20} color="#6b7280" /> : <FileText size={20} color="#6b7280" />}
+                              <div>
+                                <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{doc.original_name}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'capitalize' }}>{doc.document_type.replace(/_/g, ' ')}</div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              {(isImage || isPdf) && (
+                                <button 
+                                  onClick={() => setPreviewDocId(isPreviewing ? null : doc.id)}
+                                  className="btn-icon" 
+                                  style={{ padding: '0.5rem', background: 'var(--gray-100)', color: 'var(--gray-700)', borderRadius: '0.375rem', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer' }}
+                                  title="Preview"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                              )}
+                              <a href={doc.downloadUrl} target="_blank" rel="noopener noreferrer" className="btn-icon" style={{ padding: '0.5rem', background: 'var(--primary-color)', color: 'white', borderRadius: '0.375rem', display: 'flex', alignItems: 'center' }} title="Download">
+                                <Download size={16} />
+                              </a>
+                            </div>
+                          </div>
+                          {isPreviewing && (
+                            <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '0.75rem' }}>
+                              {isImage ? (
+                                <img src={doc.previewUrl || doc.downloadUrl} alt={doc.original_name} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '0.375rem' }} />
+                              ) : isPdf ? (
+                                <iframe src={doc.previewUrl || doc.downloadUrl} title={doc.original_name} style={{ width: '100%', height: '400px', border: 'none', borderRadius: '0.375rem' }} />
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic' }}>No documents uploaded.</div>
+                )}
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
               <button onClick={() => setViewingFranchise(null)} className="btn btn-secondary">Close</button>

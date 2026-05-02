@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Eye, X } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 const AdminStudents = () => {
   const { data: students, loading } = useFetch('/students');
   const [viewingStudent, setViewingStudent] = useState(null);
+  const navigate = useNavigate();
 
   return (
     <div>
@@ -73,6 +75,22 @@ const AdminStudents = () => {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Father's Name</div>
+                  <div>{viewingStudent.father_name || '-'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Mother's Name</div>
+                  <div>{viewingStudent.mother_name || '-'}</div>
+                </div>
+              </div>
+              {viewingStudent.photo_url && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Student Photo</div>
+                  <img src={viewingStudent.photo_url} alt="Student" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid var(--gray-200)' }} />
+                </div>
+              )}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Course</div>
                   <div>{viewingStudent.courses?.name || '-'}</div>
                 </div>
@@ -88,7 +106,10 @@ const AdminStudents = () => {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button onClick={() => navigate('/admin/admissions', { state: { userId: viewingStudent.user_id } })} className="btn btn-primary">
+                View Admission Details
+              </button>
               <button onClick={() => setViewingStudent(null)} className="btn btn-secondary">Close</button>
             </div>
           </div>

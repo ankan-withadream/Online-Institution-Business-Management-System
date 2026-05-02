@@ -22,6 +22,7 @@ const router = Router();
 router.post('/public-upload', upload.single('file'), documentsController.uploadPublic);
 router.post('/upload', authenticate, upload.single('file'), documentsController.upload);
 router.get('/:id', authenticate, documentsController.getById);
+router.get('/entity/:entityType/:entityId', authenticate, documentsController.getByEntity);
 router.delete('/:id', authenticate, authorize('admin'), documentsController.remove);
 
 export default router;

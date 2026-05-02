@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
-import { buildR2Key, uploadBuffer, getDownloadUrl, deleteObject } from '../utils/r2.js';
+import { buildR2Key, uploadBuffer, getDownloadUrl, getPreviewUrl, deleteObject } from '../utils/r2.js';
 
 const ensureDocumentFields = (req) => {
   const { entityType, entityId, documentType } = req.body;
@@ -111,10 +111,54 @@ export const getById = async (req, res) => {
       downloadName: data.original_name || 'document',
     });
 
-    res.json({ ...data, downloadUrl });
+    const previewUrl = await getPreviewUrl({
+      key: data.file_url,
+      expiresIn: 300,
+    });
+
+    res.json({ ...data, downloadUrl, previewUrl });
   } catch (err) {
     console.error('Get document error:', err);
     res.status(500).json({ error: 'Failed to fetch document' });
+  }
+};
+
+export const getByEntity = async (req, res) => {
+  try {
+    const { entityType, entityId } = req.params;
+    const { data, error } = await supabaseAdmin
+      .from('documents')
+      .select('*')
+      .eq('entity_type', entityType)
+      .eq('entity_id', entityId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const documentsWithUrls = await Promise.all(
+      data.map(async (doc) => {
+        try {
+          const downloadUrl = await getDownloadUrl({
+            key: doc.file_url,
+            expiresIn: 300,
+            downloadName: doc.original_name || 'document',
+          });
+          const previewUrl = await getPreviewUrl({
+            key: doc.file_url,
+            expiresIn: 300,
+          });
+          return { ...doc, downloadUrl, previewUrl };
+        } catch (e) {
+          console.error(`Failed to get URL for document ${doc.id}:`, e);
+          return doc;
+        }
+      })
+    );
+
+    res.json(documentsWithUrls);
+  } catch (err) {
+    console.error('Get entity documents error:', err);
+    res.status(500).json({ error: 'Failed to fetch documents' });
   }
 };
 
