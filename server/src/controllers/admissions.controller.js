@@ -159,3 +159,69 @@ export const updateStatus = async (req, res) => {
     res.status(500).json({ error: 'Failed to update admission status' });
   }
 };
+
+export const getByFranchise = async (req, res) => {
+  try {
+    const { franchiseId } = req.params;
+
+    // Ownership check for franchise users
+    if (req.user.role === 'franchise') {
+      const { data: franchise } = await supabaseAdmin
+        .from('franchises')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .single();
+
+      if (!franchise || franchise.id !== franchiseId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('admissions')
+      .select('*, courses(name)')
+      .eq('franchise_id', franchiseId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Get franchise admissions error:', err);
+    res.status(500).json({ error: 'Failed to fetch franchise admissions' });
+  }
+};
+
+export const bulkCreate = async (req, res) => {
+  try {
+    const { admissions, franchiseId } = req.body;
+
+    if (!admissions || admissions.length === 0) {
+      return res.status(400).json({ error: 'No admissions provided' });
+    }
+
+    const records = admissions.map(a => ({
+      course_id: a.courseId,
+      franchise_id: franchiseId || null,
+      full_name: a.fullName,
+      father_name: a.fatherName || null,
+      mother_name: a.motherName || null,
+      email: a.email,
+      initial_password: a.password || null,
+      phone: a.phone,
+      date_of_birth: a.dateOfBirth,
+      gender: a.gender,
+      address: a.address,
+      city: a.city,
+      state: a.state,
+      pincode: a.pincode,
+      status: 'pending',
+    }));
+
+    const { data, error } = await supabaseAdmin.from('admissions').insert(records).select();
+    if (error) throw error;
+    res.status(201).json({ message: `${data.length} admissions created`, admissions: data });
+  } catch (err) {
+    console.error('Bulk create admissions error:', err);
+    res.status(500).json({ error: 'Failed to create bulk admissions' });
+  }
+};

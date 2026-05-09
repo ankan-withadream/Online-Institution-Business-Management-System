@@ -41,6 +41,11 @@ import StudentCertificates from '../pages/student/StudentCertificates';
 
 // Franchise Pages
 import FranchiseDashboard from '../pages/franchise/FranchiseDashboard';
+import FranchiseApplications from '../pages/franchise/FranchiseApplications';
+import FranchiseAdmissions from '../pages/franchise/FranchiseAdmissions';
+import FranchiseStudents from '../pages/franchise/FranchiseStudents';
+import FranchiseCourses from '../pages/franchise/FranchiseCourses';
+import FranchiseFees from '../pages/franchise/FranchiseFees';
 
 const AppRouter = () => {
   return (
@@ -103,6 +108,11 @@ const AppRouter = () => {
             </ProtectedRoute>
           }>
             <Route index element={<FranchiseDashboard />} />
+            <Route path="applications" element={<FranchiseApplications />} />
+            <Route path="admissions" element={<FranchiseAdmissions />} />
+            <Route path="students" element={<FranchiseStudents />} />
+            <Route path="courses" element={<FranchiseCourses />} />
+            <Route path="fees" element={<FranchiseFees />} />
           </Route>
         </Routes>
       </AuthProvider>

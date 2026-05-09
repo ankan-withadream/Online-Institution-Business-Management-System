@@ -10,6 +10,10 @@ const router = Router();
 // Public — submit admission application
 router.post('/', validate(admissionSchema), admissionsController.create);
 
+// Franchise
+router.get('/franchise/:franchiseId', authenticate, authorize('franchise', 'admin'), admissionsController.getByFranchise);
+router.post('/bulk', authenticate, authorize('franchise', 'admin'), admissionsController.bulkCreate);
+
 // Admin
 router.get('/', authenticate, authorize('admin'), admissionsController.getAll);
 router.get('/:id', authenticate, authorize('admin'), admissionsController.getById);

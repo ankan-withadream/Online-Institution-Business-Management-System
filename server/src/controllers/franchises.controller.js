@@ -49,6 +49,22 @@ export const getAll = async (req, res) => {
   }
 };
 
+export const getMe = async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('franchises')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Franchise not found' });
+    res.json(data);
+  } catch (err) {
+    console.error('Get my franchise error:', err);
+    res.status(500).json({ error: 'Failed to fetch franchise' });
+  }
+};
+
 export const getById = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
@@ -161,5 +177,64 @@ export const getStudents = async (req, res) => {
   } catch (err) {
     console.error('Get franchise students error:', err);
     res.status(500).json({ error: 'Failed to fetch students' });
+  }
+};
+
+export const getCourses = async (req, res) => {
+  try {
+    // Ownership check for franchise users
+    if (req.user.role === 'franchise') {
+      const { data: franchise } = await supabaseAdmin
+        .from('franchises')
+        .select('id')
+        .eq('user_id', req.user.id)
+        .single();
+
+      if (!franchise || franchise.id !== req.params.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
+    // Get franchise to read course_ids
+    const { data: franchise, error: franchiseErr } = await supabaseAdmin
+      .from('franchises')
+      .select('course_ids')
+      .eq('id', req.params.id)
+      .single();
+
+    if (franchiseErr || !franchise) return res.status(404).json({ error: 'Franchise not found' });
+
+    if (!franchise.course_ids || franchise.course_ids.length === 0) {
+      return res.json([]);
+    }
+
+    // Get courses by IDs
+    const { data: courses, error: courseErr } = await supabaseAdmin
+      .from('courses')
+      .select('*, subjects(*)')
+      .in('id', franchise.course_ids);
+
+    if (courseErr) throw courseErr;
+
+    // Get student counts per course for this franchise
+    const { data: students } = await supabaseAdmin
+      .from('students')
+      .select('id, course_id')
+      .eq('franchise_id', req.params.id);
+
+    const studentCounts = {};
+    (students || []).forEach(s => {
+      studentCounts[s.course_id] = (studentCounts[s.course_id] || 0) + 1;
+    });
+
+    const coursesWithCounts = courses.map(c => ({
+      ...c,
+      enrolled_students: studentCounts[c.id] || 0,
+    }));
+
+    res.json(coursesWithCounts);
+  } catch (err) {
+    console.error('Get franchise courses error:', err);
+    res.status(500).json({ error: 'Failed to fetch courses' });
   }
 };

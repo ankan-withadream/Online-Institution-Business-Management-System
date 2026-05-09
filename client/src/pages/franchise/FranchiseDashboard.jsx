@@ -13,8 +13,7 @@ const FranchiseDashboard = () => {
   useEffect(() => {
     const fetch = async () => {
       try {
-        const { data: franchises } = await api.get('/franchises');
-        const myFranchise = franchises?.[0];
+        const { data: myFranchise } = await api.get('/franchises/me');
         if (myFranchise) {
           setFranchise(myFranchise);
           const { data } = await api.get(`/franchises/${myFranchise.id}/students`);

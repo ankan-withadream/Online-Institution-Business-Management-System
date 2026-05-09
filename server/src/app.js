@@ -17,6 +17,7 @@ import certificateRoutes from './routes/certificates.routes.js';
 import franchiseRoutes from './routes/franchises.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import documentRoutes from './routes/documents.routes.js';
+import feeRoutes from './routes/fees.routes.js';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/franchises', franchiseRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/documents', documentRoutes);
+app.use('/api/fees', feeRoutes);
 
 // ─── 404 Handler ────────────────────────────────────────
 app.use((_req, res) => {

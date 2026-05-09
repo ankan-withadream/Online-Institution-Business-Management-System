@@ -12,8 +12,14 @@ router.post('/apply', validate(franchiseApplySchema), franchisesController.apply
 
 // Admin
 router.get('/', authenticate, authorize('admin'), franchisesController.getAll);
-router.get('/:id', authenticate, authorize('admin', 'franchise'), franchisesController.getById);
 router.patch('/:id/status', authenticate, authorize('admin'), validate(statusUpdateSchema), franchisesController.updateStatus);
+
+// Franchise — get own franchise
+router.get('/me', authenticate, authorize('franchise'), franchisesController.getMe);
+
+// Admin & Franchise
+router.get('/:id', authenticate, authorize('admin', 'franchise'), franchisesController.getById);
 router.get('/:id/students', authenticate, authorize('admin', 'franchise'), franchisesController.getStudents);
+router.get('/:id/courses', authenticate, authorize('admin', 'franchise'), franchisesController.getCourses);
 
 export default router;

@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
   LayoutDashboard, Users, FileText, GraduationCap, Award,
-  Bell, ClipboardList, Building2, LogOut, ChevronRight, BookOpen
+  Bell, ClipboardList, Building2, LogOut, ChevronRight, BookOpen, CreditCard, UserPlus
 } from 'lucide-react';
 import './DashboardLayout.css';
 
@@ -29,6 +29,11 @@ const studentNav = [
 
 const franchiseNav = [
   { path: '/franchise-dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/franchise-dashboard/applications', label: 'Applications', icon: UserPlus },
+  { path: '/franchise-dashboard/admissions', label: 'Admissions', icon: FileText },
+  { path: '/franchise-dashboard/students', label: 'Students', icon: Users },
+  { path: '/franchise-dashboard/courses', label: 'Courses', icon: BookOpen },
+  { path: '/franchise-dashboard/fees', label: 'Fees Payment', icon: CreditCard },
 ];
 
 export const DashboardLayout = () => {
