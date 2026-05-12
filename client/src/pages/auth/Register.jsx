@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { uploadDocumentPublic } from '../../services/documents';
 import { GraduationCap, UserPlus } from 'lucide-react';
+import logoVehti from '../../assets/logo_brand.png';
 
 const Register = () => {
   const { register: registerUser } = useAuth();
@@ -30,12 +31,12 @@ const Register = () => {
 
       // if (userId) {
       //   try {
-          await uploadDocumentPublic({
-            file: photoFile,
-            entityType: form.role,
-            entityId: "04701310-c107-4b62-8e6a-8c7816528a93",
-            documentType: 'applicant_photo',
-          });
+      await uploadDocumentPublic({
+        file: photoFile,
+        entityType: form.role,
+        entityId: "04701310-c107-4b62-8e6a-8c7816528a93",
+        documentType: 'applicant_photo',
+      });
       //   } catch (uploadErr) {
       //     console.error('Applicant photo upload failed:', uploadErr);
       //     setError('Registration succeeded, but photo upload failed. Please sign in and upload again.');
@@ -44,12 +45,12 @@ const Register = () => {
       // }
 
       navigate('/login');
-    // } catch (err) {
-    //   setError(err.response?.data?.error || 'Registration failed');
-            } catch (uploadErr) {
-          console.error('Applicant photo upload failed:', uploadErr);
-          setError('Registration succeeded, but photo upload failed. Please sign in and upload again.');
-          return;
+      // } catch (err) {
+      //   setError(err.response?.data?.error || 'Registration failed');
+    } catch (uploadErr) {
+      console.error('Applicant photo upload failed:', uploadErr);
+      setError('Registration succeeded, but photo upload failed. Please sign in and upload again.');
+      return;
     } finally {
       setLoading(false);
     }
@@ -61,8 +62,9 @@ const Register = () => {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
       <div className="card" style={{ width: '100%', maxWidth: 420, padding: '2.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#1d4ed8', fontWeight: 800, fontSize: '1.25rem' }}>
-            <GraduationCap size={32} /> EduCare
+          <Link to="/" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: '#1d4ed8', fontWeight: 800, fontSize: '1.25rem' }}>
+            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '40px', width: 'auto' }} />
+            <span className='text-primary'>Vivekananda Education & Health Training Institute</span>
           </Link>
           <p style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Create your account</p>
         </div>

@@ -5,6 +5,7 @@ import {
   Bell, ClipboardList, Building2, LogOut, ChevronRight, BookOpen, CreditCard, UserPlus
 } from 'lucide-react';
 import './DashboardLayout.css';
+import logoVehti from '../../assets/logo_brand.png';
 
 const adminNav = [
   { path: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -53,8 +54,7 @@ export const DashboardLayout = () => {
       <aside className="sidebar">
         <div className="sidebar-header">
           <Link to="/" className="sidebar-logo">
-            <GraduationCap size={28} />
-            <span>EduCare</span>
+            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '40px', width: 'auto' }} />
           </Link>
           <span className="role-badge">{user?.role}</span>
         </div>

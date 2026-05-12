@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { GraduationCap, LogIn } from 'lucide-react';
+import logoVehti from '../../assets/logo_brand.png';
 
 const Login = () => {
   const { login } = useAuth();
@@ -30,8 +31,9 @@ const Login = () => {
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #0f172a, #1e293b)' }}>
       <div className="card" style={{ width: '100%', maxWidth: 420, padding: '2.5rem' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <Link to="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#1d4ed8', fontWeight: 800, fontSize: '1.25rem' }}>
-            <GraduationCap size={32} /> EduCare
+          <Link to="/" style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 8, color: '#1d4ed8', fontWeight: 800, fontSize: '1.25rem' }}>
+            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '40px', width: 'auto' }} />
+            <span className='text-primary'>Vivekananda Education & Health Training Institute</span>
           </Link>
           <p style={{ color: '#6b7280', marginTop: '0.5rem', fontSize: '0.875rem' }}>Sign in to your account</p>
         </div>

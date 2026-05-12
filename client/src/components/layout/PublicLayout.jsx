@@ -1,6 +1,7 @@
 import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { GraduationCap, Menu, X } from 'lucide-react';
+import { Menu, X, GraduationCap } from 'lucide-react';
+import logoVehti from '../../assets/logo_brand.png';
 import { useState } from 'react';
 import './PublicLayout.css';
 
@@ -19,10 +20,12 @@ export const PublicLayout = () => {
   return (
     <div className="public-layout">
       <header className="header">
+        <div className="header-top-bar">
+          <span>Vivekananda Education & Health Training Institute</span>
+        </div>
         <div className="container header-inner">
           <Link to="/" className="logo">
-            <GraduationCap size={32} />
-            <span>EduCare</span>
+            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '40px', width: 'auto' }} />
           </Link>
 
           <nav className={`nav ${menuOpen ? 'nav-open' : ''}`}>
@@ -57,9 +60,9 @@ export const PublicLayout = () => {
       <footer className="footer">
         <div className="container footer-inner">
           <div className="footer-brand">
-            <GraduationCap size={28} />
-            <span>EduCare</span>
-            <p>Healthcare & Nursing Training Institute</p>
+            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '40px', width: '40px' }} />
+            <span>Vivekananda Education & Health Training Institute</span>
+            {/* <p>Healthcare & Nursing Training Institute</p> */}
           </div>
           <div className="footer-links">
             <div>
