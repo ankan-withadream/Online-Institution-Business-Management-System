@@ -3,7 +3,7 @@
 .header-top-bar {
   padding: var(--space-4) 0;
   text-align: center;
-  background: white;
+  background: rgba(255, 255, 255, 0.189);
   /* border-bottom: 1px solid var(--gray-100); */
 }
 
