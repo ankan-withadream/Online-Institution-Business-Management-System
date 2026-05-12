@@ -31,6 +31,7 @@ import AdminNotices from '../pages/admin/AdminNotices';
 import AdminCertificates from '../pages/admin/AdminCertificates';
 import AdminMarksheets from '../pages/admin/AdminMarksheets';
 import AdminFranchises from '../pages/admin/AdminFranchises';
+import AdminPayments from '../pages/admin/AdminPayments';
 
 // Student Pages
 import StudentDashboard from '../pages/student/StudentDashboard';
@@ -86,6 +87,7 @@ const AppRouter = () => {
             <Route path="certificates" element={<AdminCertificates />} />
             <Route path="marksheets" element={<AdminMarksheets />} />
             <Route path="franchises" element={<AdminFranchises />} />
+            <Route path="payments" element={<AdminPayments />} />
           </Route>
 
           {/* Student Routes */}

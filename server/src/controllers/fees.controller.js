@@ -107,3 +107,18 @@ export const getByStudent = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch fee payments' });
   }
 };
+
+export const getAll = async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('fee_payments')
+      .select('*, students(student_id_number, users(full_name, email)), courses(name, fee), franchises(organization_name)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Get all fee payments error:', err);
+    res.status(500).json({ error: 'Failed to fetch all fee payments' });
+  }
+};

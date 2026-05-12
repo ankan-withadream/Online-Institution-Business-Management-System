@@ -18,6 +18,7 @@ const adminNav = [
   { path: '/admin/certificates', label: 'Certificates', icon: GraduationCap },
   { path: '/admin/marksheets', label: 'Marksheets', icon: FileText },
   { path: '/admin/franchises', label: 'Franchises', icon: Building2 },
+  { path: '/admin/payments', label: 'Payments', icon: CreditCard },
 ];
 
 const studentNav = [

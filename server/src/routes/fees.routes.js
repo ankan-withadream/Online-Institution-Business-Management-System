@@ -5,6 +5,9 @@ import * as feesController from '../controllers/fees.controller.js';
 
 const router = Router();
 
+// Get all fee payments (admin only)
+router.get('/', authenticate, authorize('admin'), feesController.getAll);
+
 // Create individual fee payment
 router.post('/', authenticate, authorize('franchise', 'admin'), feesController.create);
 
