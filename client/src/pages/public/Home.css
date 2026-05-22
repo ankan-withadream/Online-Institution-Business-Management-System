@@ -1,97 +1,247 @@
 /* ═══════ HOME PAGE ═══════ */
 
+/* ── Hero Section ── */
 .hero {
   position: relative;
-  padding: 80px 0;
+  min-height: 92vh;
+  display: flex;
+  align-items: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
   color: white;
 }
 
-.hero-bg-glow {
+/* ── Background Carousel ── */
+.hero-carousel {
   position: absolute;
-  top: -200px;
-  right: -200px;
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
-  pointer-events: none;
+  inset: 0;
+  z-index: 0;
 }
 
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  /* Shift the image focus to the right so left side is blurred overlay area */
+  background-position: 65% center;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 1.2s ease-in-out, transform 7s ease-out;
+  will-change: opacity, transform;
+}
+
+.hero-slide.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Gradient Overlay: heavy on left, fading to transparent on right ── */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  /* Multi-layered gradient: 
+     - Left side: solid dark for text readability
+     - Center: transitional blur zone 
+     - Right side: very light tint so image shows through */
+  background: linear-gradient(
+    to right,
+    rgba(10, 18, 36, 0.92) 0%,
+    rgba(10, 18, 36, 0.85) 25%,
+    rgba(10, 18, 36, 0.55) 50%,
+    rgba(10, 18, 36, 0.20) 70%,
+    rgba(10, 18, 36, 0.08) 85%,
+    rgba(10, 18, 36, 0.03) 100%
+  );
+  /* The frosted-glass blur gradient is achieved via mask on a blur pseudo-element */
+}
+
+/* Blur layer that fades from left (strong blur) to right (no blur) */
+.hero-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  /* Mask: opaque on left (blur visible) → transparent on right (blur hidden) */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.9) 20%,
+    rgba(0, 0, 0, 0.5) 45%,
+    rgba(0, 0, 0, 0.15) 65%,
+    rgba(0, 0, 0, 0) 80%
+  );
+  mask-image: linear-gradient(
+    to right,
+    rgba(0, 0, 0, 1) 0%,
+    rgba(0, 0, 0, 0.9) 20%,
+    rgba(0, 0, 0, 0.5) 45%,
+    rgba(0, 0, 0, 0.15) 65%,
+    rgba(0, 0, 0, 0) 80%
+  );
+}
+
+/* Subtle bottom edge gradient for stats area blending */
+.hero-overlay::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(
+    to top,
+    rgba(10, 18, 36, 0.4) 0%,
+    transparent 100%
+  );
+}
+
+/* ── Slide Indicators — bottom right ── */
+.hero-indicators {
+  position: absolute;
+  bottom: 32px;
+  right: 48px;
+  z-index: 10;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.hero-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  padding: 0;
+}
+
+.hero-dot.active {
+  width: 32px;
+  background: white;
+  border-color: white;
+  border-radius: var(--radius-full);
+}
+
+.hero-dot:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* ── Hero Content — left-aligned ── */
 .hero-content {
   position: relative;
-  z-index: 1;
-  text-align: center;
-  max-width: 800px;
+  z-index: 5;
+  max-width: 1200px;
   margin: 0 auto;
+  padding-top: 60px;
+  padding-bottom: 60px;
 }
 
+.hero-text {
+  max-width: 600px;
+  text-align: left;
+}
+
+/* ── Badge ── */
 .hero-badge {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-full);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
   color: var(--primary-300);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   margin-bottom: var(--space-6);
+  animation: heroSlideUp 0.8s ease-out 0.1s both;
 }
 
+@keyframes heroSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Hero Typography ── */
 .hero h1 {
-  font-size: 3.5rem;
+  font-size: 3.75rem;
   font-weight: 800;
-  line-height: 1.15;
-  margin-bottom: var(--space-6);
+  line-height: 1.1;
+  margin-bottom: var(--space-5);
+  letter-spacing: -0.03em;
+  animation: heroSlideUp 0.8s ease-out 0.2s both;
+  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.25);
 }
 
 .gradient-text {
-  background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+  background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .hero-desc {
-  font-size: var(--font-size-lg);
-  color: var(--gray-300);
-  max-width: 600px;
-  margin: 0 auto var(--space-8);
-  line-height: 1.7;
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.75;
+  margin-bottom: var(--space-8);
+  max-width: 520px;
+  animation: heroSlideUp 0.8s ease-out 0.35s both;
 }
 
+/* ── Hero Actions ── */
 .hero-actions {
   display: flex;
-  justify-content: center;
   gap: var(--space-4);
-  margin-bottom: var(--space-12);
+  margin-bottom: var(--space-10);
+  animation: heroSlideUp 0.8s ease-out 0.5s both;
 }
 
+.btn-secondary-hero {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+}
+
+.btn-secondary-hero:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: white;
+}
+
+/* ── Hero Stats — inline row ── */
 .hero-stats {
   display: flex;
-  justify-content: center;
-  gap: var(--space-10);
-  padding-top: var(--space-8);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  animation: heroSlideUp 0.8s ease-out 0.65s both;
 }
 
 .hero-stats div {
-  text-align: center;
+  text-align: left;
 }
 
 .hero-stats strong {
   display: block;
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: 800;
   color: white;
 }
 
 .hero-stats span {
-  font-size: var(--font-size-sm);
-  color: var(--gray-400);
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.02em;
 }
+
+/* ═══════ FEATURES ═══════ */
 
 .features-grid .feature-card {
   text-align: center;
@@ -123,6 +273,8 @@
   line-height: 1.6;
 }
 
+/* ═══════ CTA ═══════ */
+
 .cta-section {
   padding: var(--space-16) 0;
   background: var(--gray-100);
@@ -149,9 +301,72 @@
   opacity: 0.9;
 }
 
+/* ═══════ RESPONSIVE ═══════ */
+
 @media (max-width: 768px) {
-  .hero h1 { font-size: 2rem; }
-  .hero-actions { flex-direction: column; align-items: center; }
-  .hero-stats { flex-wrap: wrap; gap: var(--space-6); }
-  .cta-card { flex-direction: column; gap: var(--space-6); text-align: center; }
+  .hero {
+    min-height: 85vh;
+  }
+
+  .hero-slide {
+    background-position: center;
+  }
+
+  .hero-overlay {
+    background: linear-gradient(
+      to bottom,
+      rgba(10, 18, 36, 0.88) 0%,
+      rgba(10, 18, 36, 0.7) 50%,
+      rgba(10, 18, 36, 0.4) 100%
+    );
+  }
+
+  .hero-overlay::before {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.6) 50%,
+      rgba(0, 0, 0, 0) 80%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 1) 0%,
+      rgba(0, 0, 0, 0.6) 50%,
+      rgba(0, 0, 0, 0) 80%
+    );
+  }
+
+  .hero-text {
+    max-width: 100%;
+  }
+
+  .hero h1 {
+    font-size: 2.2rem;
+  }
+
+  .hero-desc {
+    font-size: 1rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+  }
+
+  .hero-stats {
+    flex-wrap: wrap;
+    gap: var(--space-5);
+  }
+
+  .hero-indicators {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 16px;
+  }
+
+  .cta-card {
+    flex-direction: column;
+    gap: var(--space-6);
+    text-align: center;
+  }
 }
