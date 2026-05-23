@@ -21,12 +21,13 @@ export const PublicLayout = () => {
     <div className="public-layout">
       <header className="header">
         <div className="header-top-bar">
+        <Link to="/" className="logo">
+            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '120px', width: '120px' }} />
+          </Link>
           <span>Vivekananda Education & Health Training Institute</span>
         </div>
         <div className="container header-inner">
-          <Link to="/" className="logo">
-            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '40px', width: 'auto' }} />
-          </Link>
+          
 
           <nav className={`nav ${menuOpen ? 'nav-open' : ''}`}>
             <Link to="/" onClick={() => setMenuOpen(false)}>Home</Link>
