@@ -22,12 +22,25 @@ const Contact = () => {
         <div className="grid grid-2" style={{ gap: '3rem', alignItems: 'start' }}>
           <div>
             <div className="card" style={{ marginBottom: '1.5rem' }}>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'start', padding: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'start', padding: '0.5rem', marginBottom: '1rem' }}>
                 <MapPin size={20} style={{ color: '#2563eb', flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <h3 style={{ fontWeight: 600, marginBottom: 4 }}>Address</h3>
-                  <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>123 Healthcare Avenue, Medical District, New Delhi - 110001</p>
+                  <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
+                    123 Healthcare Avenue, Medical District, New Delhi - 110001
+                  </p>
                 </div>
+              </div>
+              <div style={{ width: '100%', height: '250px', borderRadius: '0.5rem', overflow: 'hidden' }}>
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d339.23431351165794!2d88.41547189745887!3d22.34370389628477!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e1!3m2!1sen!2sin!4v1779537091648!5m2!1sen!2sin"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                ></iframe>
               </div>
             </div>
             <div className="card" style={{ marginBottom: '1.5rem' }}>
@@ -55,19 +68,19 @@ const Contact = () => {
             <form onSubmit={handleSubmit}>
               <div className="form-group">
                 <label className="form-label">Full Name</label>
-                <input className="form-input" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
+                <input className="form-input" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Email</label>
-                <input className="form-input" type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
+                <input className="form-input" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Subject</label>
-                <input className="form-input" value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} required />
+                <input className="form-input" value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} required />
               </div>
               <div className="form-group">
                 <label className="form-label">Message</label>
-                <textarea className="form-input" rows={5} value={form.message} onChange={e => setForm({...form, message: e.target.value})} required />
+                <textarea className="form-input" rows={5} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} required />
               </div>
               <button className="btn btn-primary" type="submit" style={{ width: '100%' }}>Send Message</button>
             </form>
