@@ -2,12 +2,21 @@ import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Menu, X, GraduationCap } from 'lucide-react';
 import logoVehti from '../../assets/logo_brand.png';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './PublicLayout.css';
 
 export const PublicLayout = () => {
   const { isAuthenticated, user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 20); // Collapse after scrolling down 20px
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const getDashboardLink = () => {
     if (!user) return '/login';
@@ -20,15 +29,17 @@ export const PublicLayout = () => {
   return (
     <div className="public-layout">
       <header className="header">
-        <div className="header-top-bar">
-        <Link to="/" className="logo">
+
+        {/* Header top bar */}
+        <div className={`header-top-bar ${isScrolled ? 'collapsed' : ''}`}>
+          <Link to="/" className="logo">
             <img src={logoVehti} alt="VEHTI Logo" style={{ height: '120px', width: '120px' }} />
           </Link>
           <span>Vivekananda Education & Health Training Institute</span>
         </div>
-        <div className="container header-inner">
-          
 
+        {/* Header inner bar */}
+        <div className="container header-inner">
           <nav className={`nav ${menuOpen ? 'nav-open' : ''}`}>
             <Link to="/" onClick={() => setMenuOpen(false)}>Home</Link>
             <Link to="/about" onClick={() => setMenuOpen(false)}>About</Link>
