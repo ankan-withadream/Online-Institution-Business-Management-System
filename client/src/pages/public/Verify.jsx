@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, CheckCircle, XCircle, Download } from 'lucide-react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import api from '../../services/api';
@@ -49,31 +49,33 @@ const detailLabels = {
   currentCourse: 'Current Course',
 };
 
-const buildDetails = (config, data) => Object.entries(config)
-  .filter(([, isEnabled]) => isEnabled)
-  .map(([key]) => {
-    const value = data?.[key];
-    if (value === undefined || value === null || value === '') return null;
-    return {
-      key,
-      label: detailLabels[key] || key,
-      value,
-    };
-  })
-  .filter(Boolean);
+const buildDetails = (config, data) => Object.entries(config).reduce((acc, [key, isEnabled]) => {
+  if (!isEnabled) return acc;
+  const value = data?.[key];
+  if (value === undefined || value === null || value === '') return acc;
+  acc.push({
+    key,
+    label: detailLabels[key] || key,
+    value,
+  });
+  return acc;
+}, []);
+
+const verifyConfig = clientConfig?.verify || {};
+const verifyOptions = { ...defaultVerifyConfig.options, ...verifyConfig.options };
+const studentDetailsConfig = { ...defaultVerifyConfig.studentDetails, ...verifyConfig.studentDetails };
+const certificateDetailsConfig = { ...defaultVerifyConfig.certificateDetails, ...verifyConfig.certificateDetails };
+const certificateDisplayConfig = { ...defaultVerifyConfig.certificateDisplay, ...verifyConfig.certificateDisplay };
+const enabledTypes = [
+  ...(verifyOptions.certificate ? ['certificate'] : []),
+  ...(verifyOptions.student ? ['student'] : []),
+];
+const hasEnabledTypes = enabledTypes.length > 0;
+const showTypeSelector = enabledTypes.length > 1;
 
 const Verify = () => {
   const [code, setCode] = useState('');
-  const verifyConfig = clientConfig?.verify || {};
-  const verifyOptions = { ...defaultVerifyConfig.options, ...verifyConfig.options };
-  const studentDetailsConfig = { ...defaultVerifyConfig.studentDetails, ...verifyConfig.studentDetails };
-  const certificateDetailsConfig = { ...defaultVerifyConfig.certificateDetails, ...verifyConfig.certificateDetails };
-  const certificateDisplayConfig = { ...defaultVerifyConfig.certificateDisplay, ...verifyConfig.certificateDisplay };
-  const enabledTypes = [
-    ...(verifyOptions.certificate ? ['certificate'] : []),
-    ...(verifyOptions.student ? ['student'] : []),
-  ];
-  const [type, setType] = useState(enabledTypes[0] || 'certificate');
+  const [type, setType] = useState(() => enabledTypes[0] || 'certificate');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -123,9 +125,10 @@ const Verify = () => {
   };
   const showCertificateDownload = certificateDisplayConfig.showDownload;
   const showCertificatePreview = certificateDisplayConfig.showPreview;
-  const detailItems = result?.verified
-    ? buildDetails(isCertificate ? certificateDetailsConfig : studentDetailsConfig, result)
-    : [];
+  const detailItems = useMemo(() => {
+    if (!result?.verified) return [];
+    return buildDetails(isCertificate ? certificateDetailsConfig : studentDetailsConfig, result);
+  }, [result, isCertificate]);
 
   return (
     <div className="section">
@@ -135,7 +138,7 @@ const Verify = () => {
 
         <div className="card" style={{ padding: '2rem', textAlign: 'left' }}>
           <form onSubmit={handleVerify}>
-            {enabledTypes.length > 0 && (
+            {showTypeSelector && (
               <div className="form-group">
                 <label className="form-label">Verification Type</label>
                 <select className="form-select" value={type} onChange={e => setType(e.target.value)}>
@@ -158,13 +161,13 @@ const Verify = () => {
               className="btn btn-primary"
               type="submit"
               style={{ width: '100%' }}
-              disabled={loading || enabledTypes.length === 0}
+              disabled={loading || !hasEnabledTypes}
             >
               <Search size={16} /> {loading ? 'Verifying...' : 'Verify'}
             </button>
           </form>
 
-          {enabledTypes.length === 0 && (
+          {!hasEnabledTypes && (
             <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f3f4f6', borderRadius: 12 }}>
               <p style={{ color: '#374151', fontSize: '0.875rem' }}>
                 Verification options are currently disabled.
@@ -207,11 +210,11 @@ const Verify = () => {
                     className="btn btn-primary"
                     style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                   >
-                    {({ loading }) => loading ? 'Preparing document...' : (
+                    {({ loading }) => (loading ? 'Preparing document...' : (
                       <>
                         <Download size={18} /> Download PDF
                       </>
-                    )}
+                    ))}
                   </PDFDownloadLink>
                 </div>
               )}
