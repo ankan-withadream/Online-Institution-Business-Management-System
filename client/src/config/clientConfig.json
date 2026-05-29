@@ -1,0 +1,32 @@
+{
+  "verify": {
+    "options": {
+      "certificate": true,
+      "student": true
+    },
+    "studentDetails": {
+      "studentName": true,
+      "studentId": true,
+      "course": true,
+      "status": false,
+      "fatherName": false,
+      "motherName": false,
+      "dateOfBirth": false
+    },
+    "certificateDetails": {
+      "certificateNumber": true,
+      "issueDate": true,
+      "studentName": true,
+      "studentId": true,
+      "course": true,
+      "status": false,
+      "fatherName": false,
+      "motherName": false,
+      "dateOfBirth": false
+    },
+    "certificateDisplay": {
+      "showDownload": true,
+      "showPreview": true
+    }
+  }
+}

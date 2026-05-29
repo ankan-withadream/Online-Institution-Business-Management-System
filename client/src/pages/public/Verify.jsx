@@ -3,10 +3,77 @@ import { Search, CheckCircle, XCircle, Download } from 'lucide-react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import api from '../../services/api';
 import CertificateTemplate from '../../components/pdf/CertificateTemplate';
+import clientConfig from '../../config/clientConfig.json';
+
+const defaultVerifyConfig = {
+  options: {
+    certificate: true,
+    student: true,
+  },
+  studentDetails: {
+    studentName: true,
+    studentId: true,
+    course: true,
+    status: false,
+    fatherName: false,
+    motherName: false,
+    dateOfBirth: false,
+  },
+  certificateDetails: {
+    certificateNumber: true,
+    issueDate: true,
+    studentName: true,
+    studentId: true,
+    course: true,
+    status: false,
+    fatherName: false,
+    motherName: false,
+    dateOfBirth: false,
+  },
+  certificateDisplay: {
+    showDownload: true,
+    showPreview: true,
+  },
+};
+
+const detailLabels = {
+  studentName: 'Student',
+  studentId: 'Student ID',
+  course: 'Course',
+  status: 'Status',
+  fatherName: 'Father Name',
+  motherName: 'Mother Name',
+  dateOfBirth: 'Date of Birth',
+  certificateNumber: 'Certificate',
+  issueDate: 'Issue Date',
+  currentCourse: 'Current Course',
+};
+
+const buildDetails = (config, data) => Object.entries(config)
+  .filter(([, isEnabled]) => isEnabled)
+  .map(([key]) => {
+    const value = data?.[key];
+    if (value === undefined || value === null || value === '') return null;
+    return {
+      key,
+      label: detailLabels[key] || key,
+      value,
+    };
+  })
+  .filter(Boolean);
 
 const Verify = () => {
   const [code, setCode] = useState('');
-  const [type, setType] = useState('certificate');
+  const verifyConfig = clientConfig?.verify || {};
+  const verifyOptions = { ...defaultVerifyConfig.options, ...verifyConfig.options };
+  const studentDetailsConfig = { ...defaultVerifyConfig.studentDetails, ...verifyConfig.studentDetails };
+  const certificateDetailsConfig = { ...defaultVerifyConfig.certificateDetails, ...verifyConfig.certificateDetails };
+  const certificateDisplayConfig = { ...defaultVerifyConfig.certificateDisplay, ...verifyConfig.certificateDisplay };
+  const enabledTypes = [
+    ...(verifyOptions.certificate ? ['certificate'] : []),
+    ...(verifyOptions.student ? ['student'] : []),
+  ];
+  const [type, setType] = useState(enabledTypes[0] || 'certificate');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -54,6 +121,11 @@ const Verify = () => {
     borderRadius: '0.5rem',
     backgroundColor: '#fff',
   };
+  const showCertificateDownload = certificateDisplayConfig.showDownload;
+  const showCertificatePreview = certificateDisplayConfig.showPreview;
+  const detailItems = result?.verified
+    ? buildDetails(isCertificate ? certificateDetailsConfig : studentDetailsConfig, result)
+    : [];
 
   return (
     <div className="section">
@@ -63,13 +135,15 @@ const Verify = () => {
 
         <div className="card" style={{ padding: '2rem', textAlign: 'left' }}>
           <form onSubmit={handleVerify}>
-            <div className="form-group">
-              <label className="form-label">Verification Type</label>
-              <select className="form-select" value={type} onChange={e => setType(e.target.value)}>
-                <option value="certificate">Certificate</option>
-                <option value="student">Student</option>
-              </select>
-            </div>
+            {enabledTypes.length > 0 && (
+              <div className="form-group">
+                <label className="form-label">Verification Type</label>
+                <select className="form-select" value={type} onChange={e => setType(e.target.value)}>
+                  {verifyOptions.certificate && <option value="certificate">Certificate</option>}
+                  {verifyOptions.student && <option value="student">Student</option>}
+                </select>
+              </div>
+            )}
             <div className="form-group">
               <label className="form-label">{isCertificate ? 'Certificate Verification Code' : 'Student ID Number'}</label>
               <input
@@ -80,10 +154,23 @@ const Verify = () => {
                 required
               />
             </div>
-            <button className="btn btn-primary" type="submit" style={{ width: '100%' }} disabled={loading}>
+            <button
+              className="btn btn-primary"
+              type="submit"
+              style={{ width: '100%' }}
+              disabled={loading || enabledTypes.length === 0}
+            >
               <Search size={16} /> {loading ? 'Verifying...' : 'Verify'}
             </button>
           </form>
+
+          {enabledTypes.length === 0 && (
+            <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f3f4f6', borderRadius: 12 }}>
+              <p style={{ color: '#374151', fontSize: '0.875rem' }}>
+                Verification options are currently disabled.
+              </p>
+            </div>
+          )}
 
           {error && (
             <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#fee2e2', borderRadius: 12, display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -98,44 +185,43 @@ const Verify = () => {
                 <CheckCircle size={20} style={{ color: '#16a34a' }} />
                 <strong style={{ color: '#166534' }}>Verified Successfully!</strong>
               </div>
-              <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
-                <div><strong>Student:</strong> {result.studentName}</div>
-                <div><strong>Student ID:</strong> {result.studentId}</div>
-                {!isCertificate && (
-                  <div><strong>Status:</strong> {result.status}</div>
-                )}
-                {result.course && <div><strong>Course:</strong> {result.course}</div>}
-                {isCertificate && result.certificateNumber && (
-                  <div><strong>Certificate:</strong> {result.certificateNumber}</div>
-                )}
-                {isCertificate && result.issueDate && (
-                  <div><strong>Issue Date:</strong> {result.issueDate}</div>
-                )}
-              </div>
+              {detailItems.length > 0 && (
+                <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
+                  {detailItems.map((item) => (
+                    <div key={item.key}>
+                      <strong>{item.label}:</strong> {item.value}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
-          {isCertificate && result?.verified && certificateTemplateProps && (
+          {isCertificate && result?.verified && certificateTemplateProps && (showCertificateDownload || showCertificatePreview) && (
             <div style={{ marginTop: '1.5rem', display: 'grid', gap: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <PDFDownloadLink
-                  document={<CertificateTemplate {...certificateTemplateProps} />}
-                  fileName={certificateFileName}
-                  className="btn btn-primary"
-                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                >
-                  {({ loading }) => loading ? 'Preparing document...' : (
-                    <>
-                      <Download size={18} /> Download PDF
-                    </>
-                  )}
-                </PDFDownloadLink>
-              </div>
-              <div style={previewContainerStyle}>
-                <PDFViewer width="100%" height="100%" style={certificateViewerStyle}>
-                  <CertificateTemplate {...certificateTemplateProps} />
-                </PDFViewer>
-              </div>
+              {showCertificateDownload && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <PDFDownloadLink
+                    document={<CertificateTemplate {...certificateTemplateProps} />}
+                    fileName={certificateFileName}
+                    className="btn btn-primary"
+                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    {({ loading }) => loading ? 'Preparing document...' : (
+                      <>
+                        <Download size={18} /> Download PDF
+                      </>
+                    )}
+                  </PDFDownloadLink>
+                </div>
+              )}
+              {showCertificatePreview && (
+                <div style={previewContainerStyle}>
+                  <PDFViewer width="100%" height="100%" style={certificateViewerStyle}>
+                    <CertificateTemplate {...certificateTemplateProps} />
+                  </PDFViewer>
+                </div>
+              )}
             </div>
           )}
         </div>
