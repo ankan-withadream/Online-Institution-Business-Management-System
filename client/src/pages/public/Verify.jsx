@@ -18,7 +18,7 @@ const Verify = () => {
     verifyOptions,
   } = useConfig();
   const [code, setCode] = useState('');
-  const [type, setType] = useState(null);
+  const [type, setType] = useState('');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -26,7 +26,7 @@ const Verify = () => {
   useEffect(() => {
     if (enabledTypes.length === 0) return;
     setType((prevType) => (
-      enabledTypes.includes(prevType) ? prevType : enabledTypes[0]
+      !prevType ? enabledTypes[0] : (enabledTypes.includes(prevType) ? prevType : enabledTypes[0])
     ));
   }, [enabledTypes]);
 

@@ -75,7 +75,7 @@ export const ConfigProvider = ({ children }) => {
       try {
         const response = await fetch(configUrl, { signal: controller.signal });
         if (!response.ok) {
-          throw new Error(`Config request failed with ${response.status}`);
+          throw new Error(`Config request failed: ${response.status} ${response.statusText}`);
         }
         const data = await response.json();
         setConfig(data);
