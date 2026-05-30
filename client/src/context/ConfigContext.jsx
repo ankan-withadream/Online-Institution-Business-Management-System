@@ -3,13 +3,11 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
 } from 'react';
+import clientConfig from '../config/clientConfig.json';
 
 const ConfigContext = createContext(null);
-const configUrl = new URL('../config/clientConfig.json', import.meta.url);
 
 const formatLabel = (key = '') => {
   const normalized = key
@@ -62,52 +60,11 @@ export const useConfig = () => {
 };
 
 export const ConfigProvider = ({ children }) => {
-  const [config, setConfig] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadConfig = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await fetch(configUrl, { signal: controller.signal });
-        if (!response.ok) {
-          throw new Error(`Config request failed: ${response.status} ${response.statusText}`);
-        }
-        const data = await response.json();
-        setConfig(data);
-      } catch (err) {
-        if (err?.name === 'AbortError') return;
-        console.error('Failed to load client config:', err);
-        setConfig(null);
-        setError('Unable to load configuration.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadConfig();
-
-    return () => controller.abort();
-  }, []);
-
+  const config = clientConfig;
+  const loading = false;
+  const error = '';
   const verifyConfig = useMemo(() => config?.verify ?? {}, [config]);
-  const verifyOptions = useMemo(() => verifyConfig.options ?? {}, [verifyConfig]);
-  const studentDetailsConfig = useMemo(() => verifyConfig.studentDetails ?? {}, [verifyConfig]);
-  const certificateDetailsConfig = useMemo(() => verifyConfig.certificateDetails ?? {}, [verifyConfig]);
-  const certificateDisplayConfig = useMemo(() => verifyConfig.certificateDisplay ?? {}, [verifyConfig]);
   const detailLabels = useMemo(() => verifyConfig.detailLabels ?? {}, [verifyConfig]);
-  const enabledTypes = useMemo(() => {
-    const types = [];
-    if (verifyOptions.certificate) types.push('certificate');
-    if (verifyOptions.student) types.push('student');
-    return types;
-  }, [verifyOptions.certificate, verifyOptions.student]);
-  const hasEnabledTypes = enabledTypes.length > 0;
-  const showTypeSelector = enabledTypes.length > 1;
 
   const buildDetails = useCallback(
     (detailsConfig, data, labelOverrides) => (
@@ -121,28 +78,14 @@ export const ConfigProvider = ({ children }) => {
     loading,
     error,
     verifyConfig,
-    verifyOptions,
-    studentDetailsConfig,
-    certificateDetailsConfig,
-    certificateDisplayConfig,
     detailLabels,
-    enabledTypes,
-    hasEnabledTypes,
-    showTypeSelector,
     buildDetails,
   }), [
     config,
     loading,
     error,
     verifyConfig,
-    verifyOptions,
-    studentDetailsConfig,
-    certificateDetailsConfig,
-    certificateDisplayConfig,
     detailLabels,
-    enabledTypes,
-    hasEnabledTypes,
-    showTypeSelector,
     buildDetails,
   ]);
 

@@ -8,15 +8,17 @@ import { useConfig } from '../../context/ConfigContext';
 const Verify = () => {
   const {
     buildDetails,
-    certificateDetailsConfig,
-    certificateDisplayConfig,
-    enabledTypes,
-    hasEnabledTypes,
     loading: configLoading,
-    showTypeSelector,
-    studentDetailsConfig,
-    verifyOptions,
+    verifyConfig,
   } = useConfig();
+  const enabledTypes = useMemo(() => {
+    const types = [];
+    if (verifyConfig?.options?.certificate) types.push('certificate');
+    if (verifyConfig?.options?.student) types.push('student');
+    return types;
+  }, [verifyConfig?.options?.certificate, verifyConfig?.options?.student]);
+  const hasEnabledTypes = enabledTypes.length > 0;
+  const showTypeSelector = enabledTypes.length > 1;
   const [code, setCode] = useState('');
   const [type, setType] = useState('');
   const [result, setResult] = useState(null);
@@ -81,13 +83,14 @@ const Verify = () => {
     borderRadius: '0.5rem',
     backgroundColor: '#fff',
   };
-  const showCertificateDownload = certificateDisplayConfig.showDownload;
-  const showCertificatePreview = certificateDisplayConfig.showPreview;
   const canVerify = !configLoading && hasEnabledTypes;
   const detailItems = useMemo(() => {
     if (!result?.verified) return [];
-    return buildDetails(isCertificate ? certificateDetailsConfig : studentDetailsConfig, result);
-  }, [buildDetails, certificateDetailsConfig, studentDetailsConfig, isCertificate, result]);
+    return buildDetails(
+      isCertificate ? verifyConfig?.certificateDetails : verifyConfig?.studentDetails,
+      result
+    );
+  }, [buildDetails, verifyConfig, isCertificate, result]);
 
   return (
     <div className="section">
@@ -101,8 +104,8 @@ const Verify = () => {
               <div className="form-group">
                 <label className="form-label">Verification Type</label>
                 <select className="form-select" value={activeType || ''} onChange={e => setType(e.target.value)}>
-                  {verifyOptions.certificate && <option value="certificate">Certificate</option>}
-                  {verifyOptions.student && <option value="student">Student</option>}
+                  {verifyConfig?.options?.certificate && <option value="certificate">Certificate</option>}
+                  {verifyConfig?.options?.student && <option value="student">Student</option>}
                 </select>
               </div>
             )}
@@ -159,9 +162,9 @@ const Verify = () => {
             </div>
           )}
 
-          {isCertificate && result?.verified && certificateTemplateProps && (showCertificateDownload || showCertificatePreview) && (
+          {isCertificate && result?.verified && certificateTemplateProps && (verifyConfig?.certificateDisplay?.showDownload || verifyConfig?.certificateDisplay?.showPreview) && (
             <div style={{ marginTop: '1.5rem', display: 'grid', gap: '1rem' }}>
-              {showCertificateDownload && (
+              {verifyConfig?.certificateDisplay?.showDownload && (
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <PDFDownloadLink
                     document={<CertificateTemplate {...certificateTemplateProps} />}
@@ -177,7 +180,7 @@ const Verify = () => {
                   </PDFDownloadLink>
                 </div>
               )}
-              {showCertificatePreview && (
+              {verifyConfig?.certificateDisplay?.showPreview && (
                 <div style={previewContainerStyle}>
                   <PDFViewer width="100%" height="100%" style={certificateViewerStyle}>
                     <CertificateTemplate {...certificateTemplateProps} />
