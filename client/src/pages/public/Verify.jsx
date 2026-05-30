@@ -18,7 +18,7 @@ const Verify = () => {
     verifyOptions,
   } = useConfig();
   const [code, setCode] = useState('');
-  const [type, setType] = useState(() => enabledTypes[0] || 'certificate');
+  const [type, setType] = useState(null);
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -32,7 +32,7 @@ const Verify = () => {
 
   const activeType = enabledTypes.includes(type)
     ? type
-    : (enabledTypes[0] || type || 'certificate');
+    : (enabledTypes[0] || 'certificate');
 
   const handleVerify = async (e) => {
     e.preventDefault();
