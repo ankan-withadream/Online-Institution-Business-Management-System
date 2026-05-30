@@ -30,6 +30,10 @@ const Verify = () => {
     }
   }, [enabledTypes, type]);
 
+  const activeType = enabledTypes.includes(type)
+    ? type
+    : (enabledTypes[0] || type || 'certificate');
+
   const handleVerify = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -37,7 +41,7 @@ const Verify = () => {
     setResult(null);
     try {
       const trimmedCode = code.trim();
-      const endpoint = type === 'certificate'
+      const endpoint = activeType === 'certificate'
         ? `/certificates/verify/${trimmedCode}`
         : `/students/verify/${trimmedCode}`;
       const { data } = await api.get(endpoint);
@@ -50,7 +54,7 @@ const Verify = () => {
     }
   };
 
-  const isCertificate = type === 'certificate';
+  const isCertificate = activeType === 'certificate';
   const certificateFileName = result?.studentId
     ? `Certificate_${result.studentId}.pdf`
     : 'Certificate.pdf';
@@ -92,7 +96,7 @@ const Verify = () => {
             {showTypeSelector && (
               <div className="form-group">
                 <label className="form-label">Verification Type</label>
-                <select className="form-select" value={type} onChange={e => setType(e.target.value)}>
+                <select className="form-select" value={activeType} onChange={e => setType(e.target.value)}>
                   {verifyOptions.certificate && <option value="certificate">Certificate</option>}
                   {verifyOptions.student && <option value="student">Student</option>}
                 </select>
