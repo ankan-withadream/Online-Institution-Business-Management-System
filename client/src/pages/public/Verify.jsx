@@ -25,17 +25,21 @@ const Verify = () => {
 
   useEffect(() => {
     if (enabledTypes.length === 0) return;
-    if (!enabledTypes.includes(type)) {
-      setType(enabledTypes[0]);
-    }
-  }, [enabledTypes, type]);
+    setType((prevType) => (
+      enabledTypes.includes(prevType) ? prevType : enabledTypes[0]
+    ));
+  }, [enabledTypes]);
 
   const activeType = enabledTypes.includes(type)
     ? type
-    : (enabledTypes[0] || 'certificate');
+    : (enabledTypes[0] || null);
 
   const handleVerify = async (e) => {
     e.preventDefault();
+    if (!activeType) {
+      setError('Verification options are currently disabled.');
+      return;
+    }
     setLoading(true);
     setError('');
     setResult(null);
@@ -54,7 +58,7 @@ const Verify = () => {
     }
   };
 
-  const isCertificate = activeType === 'certificate';
+  const isCertificate = (activeType || 'certificate') === 'certificate';
   const certificateFileName = result?.studentId
     ? `Certificate_${result.studentId}.pdf`
     : 'Certificate.pdf';
@@ -96,7 +100,7 @@ const Verify = () => {
             {showTypeSelector && (
               <div className="form-group">
                 <label className="form-label">Verification Type</label>
-                <select className="form-select" value={activeType} onChange={e => setType(e.target.value)}>
+                <select className="form-select" value={activeType || ''} onChange={e => setType(e.target.value)}>
                   {verifyOptions.certificate && <option value="certificate">Certificate</option>}
                   {verifyOptions.student && <option value="student">Student</option>}
                 </select>
