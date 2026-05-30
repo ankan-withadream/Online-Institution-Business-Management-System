@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import {
   createContext,
   useCallback,
@@ -93,12 +94,12 @@ export const ConfigProvider = ({ children }) => {
     return () => controller.abort();
   }, []);
 
-  const verifyConfig = config?.verify ?? {};
-  const verifyOptions = verifyConfig.options ?? {};
-  const studentDetailsConfig = verifyConfig.studentDetails ?? {};
-  const certificateDetailsConfig = verifyConfig.certificateDetails ?? {};
-  const certificateDisplayConfig = verifyConfig.certificateDisplay ?? {};
-  const detailLabels = verifyConfig.detailLabels ?? {};
+  const verifyConfig = useMemo(() => config?.verify ?? {}, [config]);
+  const verifyOptions = useMemo(() => verifyConfig.options ?? {}, [verifyConfig]);
+  const studentDetailsConfig = useMemo(() => verifyConfig.studentDetails ?? {}, [verifyConfig]);
+  const certificateDetailsConfig = useMemo(() => verifyConfig.certificateDetails ?? {}, [verifyConfig]);
+  const certificateDisplayConfig = useMemo(() => verifyConfig.certificateDisplay ?? {}, [verifyConfig]);
+  const detailLabels = useMemo(() => verifyConfig.detailLabels ?? {}, [verifyConfig]);
   const enabledTypes = useMemo(() => {
     const types = [];
     if (verifyOptions.certificate) types.push('certificate');
