@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '../context/AuthContext';
+import { ConfigProvider } from '../context/ConfigContext';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicLayout } from '../components/layout/PublicLayout';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
@@ -51,8 +52,9 @@ import FranchiseFees from '../pages/franchise/FranchiseFees';
 const AppRouter = () => {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
+      <ConfigProvider>
+        <AuthProvider>
+          <Routes>
           {/* Public Routes */}
           <Route element={<PublicLayout />}>
             <Route path="/" element={<Home />} />
@@ -116,8 +118,9 @@ const AppRouter = () => {
             <Route path="courses" element={<FranchiseCourses />} />
             <Route path="fees" element={<FranchiseFees />} />
           </Route>
-        </Routes>
-      </AuthProvider>
+          </Routes>
+        </AuthProvider>
+      </ConfigProvider>
     </BrowserRouter>
   );
 };

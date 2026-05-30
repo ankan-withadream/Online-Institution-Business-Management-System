@@ -27,6 +27,18 @@
     "certificateDisplay": {
       "showDownload": true,
       "showPreview": true
+    },
+    "detailLabels": {
+      "studentName": "Student",
+      "studentId": "Student ID",
+      "course": "Course",
+      "status": "Status",
+      "fatherName": "Father Name",
+      "motherName": "Mother Name",
+      "dateOfBirth": "Date of Birth",
+      "certificateNumber": "Certificate",
+      "issueDate": "Issue Date",
+      "currentCourse": "Current Course"
     }
   }
 }

@@ -1,84 +1,34 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, CheckCircle, XCircle, Download } from 'lucide-react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import api from '../../services/api';
 import CertificateTemplate from '../../components/pdf/CertificateTemplate';
-import clientConfig from '../../config/clientConfig.json';
-
-const defaultVerifyConfig = {
-  options: {
-    certificate: true,
-    student: true,
-  },
-  studentDetails: {
-    studentName: true,
-    studentId: true,
-    course: true,
-    status: false,
-    fatherName: false,
-    motherName: false,
-    dateOfBirth: false,
-  },
-  certificateDetails: {
-    certificateNumber: true,
-    issueDate: true,
-    studentName: true,
-    studentId: true,
-    course: true,
-    status: false,
-    fatherName: false,
-    motherName: false,
-    dateOfBirth: false,
-  },
-  certificateDisplay: {
-    showDownload: true,
-    showPreview: true,
-  },
-};
-
-const detailLabels = {
-  studentName: 'Student',
-  studentId: 'Student ID',
-  course: 'Course',
-  status: 'Status',
-  fatherName: 'Father Name',
-  motherName: 'Mother Name',
-  dateOfBirth: 'Date of Birth',
-  certificateNumber: 'Certificate',
-  issueDate: 'Issue Date',
-  currentCourse: 'Current Course',
-};
-
-const buildDetails = (config, data) => Object.entries(config).reduce((acc, [key, isEnabled]) => {
-  if (!isEnabled) return acc;
-  const value = data?.[key];
-  if (value === undefined || value === null || value === '') return acc;
-  acc.push({
-    key,
-    label: detailLabels[key] || key,
-    value,
-  });
-  return acc;
-}, []);
-
-const verifyConfig = clientConfig?.verify || {};
-const verifyOptions = { ...defaultVerifyConfig.options, ...verifyConfig.options };
-const studentDetailsConfig = { ...defaultVerifyConfig.studentDetails, ...verifyConfig.studentDetails };
-const certificateDetailsConfig = { ...defaultVerifyConfig.certificateDetails, ...verifyConfig.certificateDetails };
-const certificateDisplayConfig = { ...defaultVerifyConfig.certificateDisplay, ...verifyConfig.certificateDisplay };
-const enabledTypes = [
-  ...(verifyOptions.certificate ? ['certificate'] : []),
-  ...(verifyOptions.student ? ['student'] : []),
-];
-const hasEnabledTypes = enabledTypes.length > 0;
-const showTypeSelector = enabledTypes.length > 1;
+import { useConfig } from '../../context/ConfigContext';
 
 const Verify = () => {
+  const {
+    buildDetails,
+    certificateDetailsConfig,
+    certificateDisplayConfig,
+    enabledTypes,
+    hasEnabledTypes,
+    loading: configLoading,
+    showTypeSelector,
+    studentDetailsConfig,
+    verifyOptions,
+  } = useConfig();
   const [code, setCode] = useState('');
   const [type, setType] = useState(() => enabledTypes[0] || 'certificate');
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (enabledTypes.length === 0) return;
+    if (!enabledTypes.includes(type)) {
+      setType(enabledTypes[0]);
+    }
+  }, [enabledTypes, type]);
 
   const handleVerify = async (e) => {
     e.preventDefault();
@@ -125,10 +75,11 @@ const Verify = () => {
   };
   const showCertificateDownload = certificateDisplayConfig.showDownload;
   const showCertificatePreview = certificateDisplayConfig.showPreview;
+  const canVerify = !configLoading && hasEnabledTypes;
   const detailItems = useMemo(() => {
     if (!result?.verified) return [];
     return buildDetails(isCertificate ? certificateDetailsConfig : studentDetailsConfig, result);
-  }, [result, isCertificate]);
+  }, [buildDetails, certificateDetailsConfig, studentDetailsConfig, isCertificate, result]);
 
   return (
     <div className="section">
@@ -161,13 +112,13 @@ const Verify = () => {
               className="btn btn-primary"
               type="submit"
               style={{ width: '100%' }}
-              disabled={loading || !hasEnabledTypes}
+              disabled={loading || !canVerify}
             >
               <Search size={16} /> {loading ? 'Verifying...' : 'Verify'}
             </button>
           </form>
 
-          {!hasEnabledTypes && (
+          {!configLoading && !hasEnabledTypes && (
             <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#f3f4f6', borderRadius: 12 }}>
               <p style={{ color: '#374151', fontSize: '0.875rem' }}>
                 Verification options are currently disabled.
