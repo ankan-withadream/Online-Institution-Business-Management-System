@@ -1,5 +1,7 @@
 {
+  "_comment": "Client-side feature flags and UI configuration.",
   "verify": {
+    "_comment": "Public verification page configuration.",
     "options": {
       "certificate": true,
       "student": true
@@ -39,6 +41,36 @@
       "certificateNumber": "Certificate",
       "issueDate": "Issue Date",
       "currentCourse": "Current Course"
+    }
+  },
+  "studentDashboard": {
+    "_comment": "Student dashboard sections and feature toggles.",
+    "sections": {
+      "overview": true,
+      "results": true,
+      "certificates": true,
+      "fees": true,
+      "notices": true
+    }
+  },
+  "franchiseDashboard": {
+    "_comment": "Franchise dashboard sections and widgets.",
+    "sections": {
+      "overview": true,
+      "admissions": true,
+      "students": true,
+      "courses": true,
+      "payments": true,
+      "reports": true
+    }
+  },
+  "payments": {
+    "_comment": "Payment-related settings and feature flags.",
+    "enabled": true,
+    "allowManual": true,
+    "providers": {
+      "razorpay": false,
+      "stripe": false
     }
   }
 }

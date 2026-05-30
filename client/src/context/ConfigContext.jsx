@@ -60,10 +60,16 @@ export const useConfig = () => {
 };
 
 export const ConfigProvider = ({ children }) => {
+  // Static client configuration loaded at build time.
   const config = clientConfig;
+  // Reserved for future async loading flows.
   const loading = false;
   const error = '';
+  // Configuration slices for individual client areas.
   const verifyConfig = useMemo(() => config?.verify ?? {}, [config]);
+  const studentDashboardConfig = useMemo(() => config?.studentDashboard ?? {}, [config]);
+  const franchiseDashboardConfig = useMemo(() => config?.franchiseDashboard ?? {}, [config]);
+  const paymentsConfig = useMemo(() => config?.payments ?? {}, [config]);
   const detailLabels = useMemo(() => verifyConfig.detailLabels ?? {}, [verifyConfig]);
 
   const buildDetails = useCallback(
@@ -78,6 +84,9 @@ export const ConfigProvider = ({ children }) => {
     loading,
     error,
     verifyConfig,
+    studentDashboardConfig,
+    franchiseDashboardConfig,
+    paymentsConfig,
     detailLabels,
     buildDetails,
   }), [
@@ -85,6 +94,9 @@ export const ConfigProvider = ({ children }) => {
     loading,
     error,
     verifyConfig,
+    studentDashboardConfig,
+    franchiseDashboardConfig,
+    paymentsConfig,
     detailLabels,
     buildDetails,
   ]);
