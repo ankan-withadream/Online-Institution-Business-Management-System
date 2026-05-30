@@ -9,6 +9,7 @@ import clientConfig from '../config/clientConfig.json';
 
 const ConfigContext = createContext(null);
 
+// Normalize detail keys into human-friendly labels.
 const formatLabel = (key = '') => {
   const normalized = key
     .replace(/[_-]+/g, ' ')
@@ -27,6 +28,7 @@ const formatLabel = (key = '') => {
     .join(' ');
 };
 
+// Normalize detail config entries into a consistent shape.
 const resolveDetailEntry = (value) => {
   if (typeof value === 'boolean') return { enabled: value, label: undefined };
   if (value && typeof value === 'object') {
@@ -38,6 +40,7 @@ const resolveDetailEntry = (value) => {
   return { enabled: false, label: undefined };
 };
 
+// Build displayable detail items from config and payload data.
 const buildDetailItems = (detailsConfig = {}, data = {}, labelOverrides = {}) => (
   Object.entries(detailsConfig).reduce((acc, [key, value]) => {
     const { enabled, label } = resolveDetailEntry(value);
