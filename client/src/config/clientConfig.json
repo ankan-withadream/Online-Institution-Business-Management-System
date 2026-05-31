@@ -3,17 +3,17 @@
   "verify": {
     "_comment": "Public verification page configuration.",
     "options": {
-      "certificate": true,
+      "certificate": false,
       "student": true
     },
     "studentDetails": {
       "studentName": true,
       "studentId": true,
       "course": true,
-      "status": false,
-      "fatherName": false,
-      "motherName": false,
-      "dateOfBirth": false
+      "status": true,
+      "fatherName": true,
+      "motherName": true,
+      "dateOfBirth": true
     },
     "certificateDetails": {
       "certificateNumber": true,
@@ -21,10 +21,10 @@
       "studentName": true,
       "studentId": true,
       "course": true,
-      "status": false,
-      "fatherName": false,
-      "motherName": false,
-      "dateOfBirth": false
+      "status": true,
+      "fatherName": true,
+      "motherName": true,
+      "dateOfBirth": true
     },
     "certificateDisplay": {
       "showDownload": true,

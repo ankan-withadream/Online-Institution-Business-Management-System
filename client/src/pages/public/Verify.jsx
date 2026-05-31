@@ -25,13 +25,6 @@ const Verify = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (enabledTypes.length === 0) return;
-    setType((prevType) => (
-      !prevType ? enabledTypes[0] : (enabledTypes.includes(prevType) ? prevType : enabledTypes[0])
-    ));
-  }, [enabledTypes]);
-
   const activeType = enabledTypes.includes(type)
     ? type
     : (enabledTypes[0] || null);
