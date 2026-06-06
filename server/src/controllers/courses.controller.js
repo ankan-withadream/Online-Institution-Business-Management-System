@@ -1,7 +1,10 @@
 import { supabaseAdmin } from '../config/supabase.js';
 
 export const getAll = async (_req, res) => {
+
+  console.log('Get all courses request received');
   try {
+    console.log('Fetching courses from database...');
     let query = supabaseAdmin
       .from('courses')
       .select('*, subjects(*), sessions(*)')
@@ -11,6 +14,7 @@ export const getAll = async (_req, res) => {
       query = query.eq('is_active', true);
     }
     const { data, error } = await query;
+    console.log('Fetched courses:', data);
 
     if (error) throw error;
     res.json(data);

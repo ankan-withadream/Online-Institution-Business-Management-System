@@ -48,11 +48,10 @@ const StudentExams = () => {
     setUploading(true);
     setUploadError('');
     try {
-      await uploadDocument({
-        file: answerFile,
-        entityType: 'answer_sheet',
-        entityId: submittingAnswer.id,
-        documentType: 'student_answer'
+      const formData = new FormData();
+      formData.append('file', answerFile);
+      await api.post(`/exams/${submittingAnswer.id}/submit-answer`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       setSubmittingAnswer(null);
       setAnswerFile(null);
@@ -112,7 +111,7 @@ const StudentExams = () => {
                   <td><span className={`badge badge-${e.status === 'completed' ? 'success' : e.status === 'ongoing' ? 'warning' : 'info'}`}>{e.status}</span></td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      {e.video_url && (
+                      {e.video_url && e.status !== 'completed' && (
                         <a href={e.video_url} target="_blank" rel="noopener noreferrer" className="btn btn-sm btn-primary" title="Join Live">
                           <Video size={16} style={{ marginRight: '0.25rem' }} /> Live
                         </a>
@@ -128,7 +127,7 @@ const StudentExams = () => {
                         <FileText size={16} /> Questionier
                       </button>
                       
-                      {['ongoing', 'completed'].includes(e.status) && (
+                      {e.status === 'ongoing' && (
                         <button 
                           onClick={() => setSubmittingAnswer(e)}
                           className="btn btn-sm btn-success" 

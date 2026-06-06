@@ -217,6 +217,15 @@ CREATE TABLE documents (
 );
 
 
+-- ─── 13. ANSWERS ──────────────────────────
+CREATE TABLE answers (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  exam_id UUID REFERENCES exams(id) ON DELETE CASCADE,
+  student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+  document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
+  submitted_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- ═════════════════════════════════════════════
 -- INDEXES
 -- ═════════════════════════════════════════════
@@ -239,6 +248,8 @@ CREATE INDEX idx_certificates_student ON certificates(student_id);
 CREATE INDEX idx_certificates_verification ON certificates(verification_code);
 CREATE INDEX idx_franchises_status ON franchises(status);
 CREATE INDEX idx_documents_entity ON documents(entity_type, entity_id);
+CREATE INDEX idx_answers_exam ON answers(exam_id);
+CREATE INDEX idx_answers_student ON answers(student_id);
 
 
 -- ═════════════════════════════════════════════
@@ -256,6 +267,7 @@ ALTER TABLE notices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE certificates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE franchises ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE answers ENABLE ROW LEVEL SECURITY;
 
 -- Helper: check if current user is admin
 CREATE OR REPLACE FUNCTION is_admin()
@@ -320,3 +332,12 @@ CREATE POLICY "Admins manage franchises" ON franchises FOR ALL USING (is_admin()
 CREATE POLICY "Users read own documents" ON documents FOR SELECT USING (uploaded_by = auth.uid());
 CREATE POLICY "Admins manage documents" ON documents FOR ALL USING (is_admin());
 CREATE POLICY "Authenticated can upload documents" ON documents FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- ── ANSWERS ──
+CREATE POLICY "Students read own answers" ON answers FOR SELECT USING (
+  student_id IN (SELECT id FROM students WHERE user_id = auth.uid())
+);
+CREATE POLICY "Admins manage answers" ON answers FOR ALL USING (is_admin());
+CREATE POLICY "Students can insert own answers" ON answers FOR INSERT WITH CHECK (
+  student_id IN (SELECT id FROM students WHERE user_id = auth.uid())
+);

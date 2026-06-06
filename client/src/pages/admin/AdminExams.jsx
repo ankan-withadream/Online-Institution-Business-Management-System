@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, FileText, Eye, Download, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, FileText, Eye, Download, Image as ImageIcon, ClipboardList } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -8,7 +8,7 @@ import { uploadDocument } from '../../services/documents';
 
 const AdminExams = () => {
   const { data: exams, loading, error, refetch } = useFetch('/exams');
-  const { data: courses } = useFetch('/courses');
+  const { data: courses } = useFetch('/courses/admin/all');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
@@ -23,6 +23,13 @@ const AdminExams = () => {
 
   const [courseFilter, setCourseFilter] = useState('');
   const [sessionFilter, setSessionFilter] = useState('');
+  const [questionPaperFile, setQuestionPaperFile] = useState(null);
+
+  // Documents state — used in both edit modal (to show existing) and view modal
+  const [examDocuments, setExamDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [previewDocId, setPreviewDocId] = useState(null);
+
   const [formData, setFormData] = useState({
     name: '',
     courseId: '',
@@ -35,6 +42,38 @@ const AdminExams = () => {
     passingMarks: '',
     videoUrl: ''
   });
+
+  // Submissions modal state
+  const [submissionsExam, setSubmissionsExam] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+
+  const handleDownloadAll = () => {
+    if (!submissionsExam) return;
+    const token = localStorage.getItem('accessToken');
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/exams/${submissionsExam.id}/answers/download-all`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Download failed');
+        const disposition = res.headers.get('Content-Disposition');
+        const match = disposition?.match(/filename="?(.+?)"?$/);
+        const filename = match?.[1] || `${submissionsExam.name.replace(/[^a-zA-Z0-9._-]/g, '_')}_answers.zip`;
+        return res.blob().then(blob => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(err => {
+        console.error('Download all answers error:', err);
+        toast.error('Failed to download all answers');
+      });
+  };
 
   // Fetch documents whenever the view modal opens (like AdminAdmissions)
   useEffect(() => {
@@ -185,6 +224,26 @@ const AdminExams = () => {
     }
   };
 
+  useEffect(() => {
+    if (submissionsExam) {
+      const fetchSubmissions = async () => {
+        setLoadingSubmissions(true);
+        try {
+          const res = await api.get(`/exams/${submissionsExam.id}/answers`);
+          setSubmissions(res.data);
+        } catch (err) {
+          console.error('Failed to fetch submissions', err);
+          toast.error('Failed to load submissions');
+        } finally {
+          setLoadingSubmissions(false);
+        }
+      };
+      fetchSubmissions();
+    } else {
+      setSubmissions([]);
+    }
+  }, [submissionsExam]);
+
   const selectedCourseDetails = courses?.find(c => c.id === formData.courseId);
   const filterCourseDetails = courses?.find(c => c.id === courseFilter);
 
@@ -310,6 +369,14 @@ const AdminExams = () => {
                         style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}
                       >
                         <Trash2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => setSubmissionsExam(e)}
+                        className="btn btn-sm btn-info"
+                        title="View submissions"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                      >
+                        <ClipboardList size={16} /> Submissions
                       </button>
                     </div>
                   </td>
@@ -677,6 +744,78 @@ const AdminExams = () => {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
               <button onClick={() => setViewingExam(null)} className="btn btn-secondary">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Submissions Modal */}
+      {submissionsExam && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '800px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Submissions: {submissionsExam.name}</h2>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  onClick={handleDownloadAll}
+                  className="btn btn-sm btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                >
+                  <Download size={16} /> Download All
+                </button>
+                <button onClick={() => setSubmissionsExam(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {loadingSubmissions ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>Loading submissions...</div>
+            ) : submissions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+                <ClipboardList size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                <p>No submissions yet.</p>
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Student Name</th>
+                    <th>Student ID</th>
+                    <th>Submitted At</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {submissions.map((s, i) => (
+                    <tr key={s.id}>
+                      <td>{i + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{s.student?.user?.full_name || 'Unknown'}</td>
+                      <td style={{ color: '#6b7280', fontSize: '0.875rem' }}>{s.student?.student_id_number || '-'}</td>
+                      <td>{s.submitted_at ? format(new Date(s.submitted_at), 'PPpp') : '-'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        {s.document?.downloadUrl ? (
+                          <a
+                            href={s.document.downloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-sm btn-primary"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <Download size={16} /> Download
+                          </a>
+                        ) : (
+                          <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>No file</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button onClick={() => setSubmissionsExam(null)} className="btn btn-secondary">Close</button>
             </div>
           </div>
         </div>
