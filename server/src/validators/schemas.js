@@ -62,6 +62,7 @@ export const examSchema = z.object({
   endTime: z.string(),
   totalMarks: z.number().int().positive(),
   passingMarks: z.number().int().positive(),
+  videoUrl: z.string().optional().nullable().or(z.literal('')),
 });
 
 export const resultSchema = z.object({

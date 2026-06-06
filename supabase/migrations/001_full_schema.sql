@@ -130,6 +130,7 @@ CREATE TABLE exams (
   total_marks INTEGER,
   passing_marks INTEGER,
   status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'ongoing', 'completed', 'cancelled')),
+  video_url TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -192,7 +193,7 @@ CREATE TABLE certificates (
 -- ─── 12. DOCUMENTS ──────────────────────────
 CREATE TABLE documents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  entity_type TEXT NOT NULL CHECK (entity_type IN ('student', 'admission', 'franchise')),
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('student', 'admission', 'franchise', 'exam', 'answer_sheet')),
   entity_id UUID NOT NULL,
   document_type TEXT NOT NULL,
   file_url TEXT NOT NULL,

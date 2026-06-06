@@ -34,7 +34,7 @@ CREATE POLICY "Admins manage fee payments" ON fee_payments FOR ALL
 CREATE POLICY "Authenticated can insert fee payments" ON fee_payments FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
--- Update documents entity_type constraint to allow 'system' type (for payment QR code)
+-- Update documents entity_type constraint to allow 'system', 'exam', and 'answer_sheet' types
 ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_entity_type_check;
 ALTER TABLE documents ADD CONSTRAINT documents_entity_type_check
-  CHECK (entity_type IN ('student', 'admission', 'franchise', 'system'));
+  CHECK (entity_type IN ('student', 'admission', 'franchise', 'system', 'exam', 'answer_sheet'));

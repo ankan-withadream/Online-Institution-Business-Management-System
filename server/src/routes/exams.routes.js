@@ -10,6 +10,7 @@ const router = Router();
 router.post('/', authenticate, authorize('admin'), validate(examSchema), examsController.create);
 router.get('/', authenticate, authorize('admin', 'student'), examsController.getAll);
 router.get('/:id', authenticate, authorize('admin', 'student'), examsController.getById);
+router.get('/:id/question-paper', authenticate, authorize('admin', 'student'), examsController.getQuestionPaper);
 router.put('/:id', authenticate, authorize('admin'), validate(examSchema), examsController.update);
 router.delete('/:id', authenticate, authorize('admin'), examsController.remove);
 
