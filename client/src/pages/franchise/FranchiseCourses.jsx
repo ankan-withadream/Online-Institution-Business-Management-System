@@ -21,7 +21,7 @@ const FranchiseCourses = () => {
           const { data } = await api.get(`/franchises/${myFranchise.id}/courses`);
           setCourses(data);
         }
-      } catch {}
+      } catch { }
       setLoading(false);
     };
     fetchData();
@@ -162,6 +162,19 @@ const FranchiseCourses = () => {
                   <div style={{ whiteSpace: 'pre-wrap' }}>{viewingCourse.description}</div>
                 </div>
               )}
+              {viewingCourse.sessions && viewingCourse.sessions.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Sessions</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    {viewingCourse.sessions.map(s => (
+                      <div key={s.id} className="badge badge-info" style={{ padding: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                        {s.session_type}
+                        <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>({s.start_date || 'TBA'} - {s.end_date || 'TBA'})</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {viewingCourse.subjects && viewingCourse.subjects.length > 0 && (
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Subject List</div>
@@ -214,6 +227,7 @@ const FranchiseCourses = () => {
                       <th>ID</th>
                       <th>Name</th>
                       <th>Email</th>
+                      <th>Session</th>
                       <th>Status</th>
                       <th>Enrolled</th>
                     </tr>
@@ -224,6 +238,14 @@ const FranchiseCourses = () => {
                         <td><code>{s.student_id_number}</code></td>
                         <td>{s.users?.full_name}</td>
                         <td>{s.users?.email}</td>
+                        <td>
+                          {s.sessions ? (
+                            <span className="badge" >
+                              {s.sessions.session_type}
+                              <span style={{ opacity: 0.8 }}>({s.sessions.start_date || 'TBA'} - {s.sessions.end_date || 'TBA'})</span>
+                            </span>
+                          ) : '-'}
+                        </td>
                         <td>
                           <span className={`badge badge-${s.status === 'active' ? 'success' : s.status === 'graduated' ? 'info' : 'danger'}`}>
                             {s.status}

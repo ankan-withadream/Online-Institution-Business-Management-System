@@ -7,8 +7,11 @@ import api from '../../services/api';
 
 const AdminAdmissions = () => {
   const { data: admissions, loading, refetch } = useFetch('/admissions');
+  const { data: courses } = useFetch('/courses');
   const [processing, setProcessing] = useState(null);
   const [viewingAdmission, setViewingAdmission] = useState(null);
+  const [approvingAdmission, setApprovingAdmission] = useState(null);
+  const [selectedSession, setSelectedSession] = useState('');
   const [documents, setDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [previewDocId, setPreviewDocId] = useState(null);
@@ -44,15 +47,22 @@ const AdminAdmissions = () => {
     }
   }, [viewingAdmission]);
 
-  const handleStatus = async (id, status) => {
+  const handleStatus = async (id, status, sessionId = null) => {
     setProcessing(id);
     try {
-      await api.patch(`/admissions/${id}/status`, { status });
+      await api.patch(`/admissions/${id}/status`, { status, sessionId });
+      setApprovingAdmission(null);
+      setSelectedSession('');
       refetch();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed');
     }
     setProcessing(null);
+  };
+
+  const openApproveModal = (admission) => {
+    setApprovingAdmission(admission);
+    setSelectedSession(admission.session_id || '');
   };
 
   return (
@@ -82,7 +92,7 @@ const AdminAdmissions = () => {
                       </button>
                       {a.status === 'pending' && (
                         <>
-                          <button className="btn btn-primary btn-sm" onClick={() => handleStatus(a.id, 'approved')} disabled={processing === a.id}>Approve</button>
+                          <button className="btn btn-primary btn-sm" onClick={() => openApproveModal(a)} disabled={processing === a.id}>Approve</button>
                           <button className="btn btn-danger btn-sm" onClick={() => handleStatus(a.id, 'rejected')} disabled={processing === a.id}>Reject</button>
                         </>
                       )}
@@ -93,6 +103,42 @@ const AdminAdmissions = () => {
             </tbody>
           </table>
           {(!admissions || admissions.length === 0) && <div className="empty-state"><p>No admissions found</p></div>}
+        </div>
+      )}
+
+      {approvingAdmission && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '400px', padding: '2rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Approve Admission</h2>
+            <p style={{ marginBottom: '1.5rem', color: '#4b5563' }}>Assign a session to <strong>{approvingAdmission.full_name}</strong> for <strong>{approvingAdmission.courses?.name}</strong>.</p>
+            
+            <div className="form-group">
+              <label className="form-label">Select Session</label>
+              <select 
+                className="form-select" 
+                value={selectedSession} 
+                onChange={(e) => setSelectedSession(e.target.value)}
+              >
+                <option value="">No Session (Assign Later)</option>
+                {courses?.find(c => c.id === approvingAdmission.course_id)?.sessions?.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+              <button onClick={() => setApprovingAdmission(null)} className="btn btn-secondary" disabled={processing === approvingAdmission.id}>Cancel</button>
+              <button 
+                onClick={() => handleStatus(approvingAdmission.id, 'approved', selectedSession)} 
+                className="btn btn-primary" 
+                disabled={processing === approvingAdmission.id}
+              >
+                {processing === approvingAdmission.id ? 'Processing...' : 'Approve & Create Student'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -136,6 +182,21 @@ const AdminAdmissions = () => {
                   <div>{format(new Date(viewingAdmission.created_at), 'PPP')}</div>
                 </div>
               </div>
+              {viewingAdmission.session_id && viewingAdmission.sessions && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Session</div>
+                    <div>
+                      <span className="badge badge-info" style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
+                        {viewingAdmission.sessions.session_type}
+                        <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                          ({viewingAdmission.sessions.start_date || 'TBA'} - {viewingAdmission.sessions.end_date || 'TBA'})
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
               {viewingAdmission.date_of_birth && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>

@@ -6,11 +6,14 @@ import api from '../../services/api';
 
 const AdminResults = () => {
   const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
   const [selectedExam, setSelectedExam] = useState('');
 
   const { data: courses, loading: coursesLoading } = useFetch('/courses');
   const { data: exams, loading: examsLoading } = useFetch(
-    selectedCourse ? `/exams?courseId=${selectedCourse}` : '/exams'
+    selectedCourse 
+      ? `/exams?courseId=${selectedCourse}${selectedSession ? `&sessionId=${selectedSession}` : ''}`
+      : '/exams'
   );
 
   const { data: allStudents } = useFetch('/students');
@@ -31,6 +34,7 @@ const AdminResults = () => {
 
   const [formData, setFormData] = useState({
     courseId: '',
+    sessionId: '',
     subjectId: '',
     examId: '',
     studentId: '',
@@ -51,8 +55,10 @@ const AdminResults = () => {
     if (result) {
       setEditingResult(result);
       const examCourseId = allExams?.find(e => e.id === result.exam_id)?.course_id || '';
+      const studentSessionId = allStudents?.find(s => s.id === result.student_id)?.session_id || '';
       setFormData({
         courseId: examCourseId,
+        sessionId: studentSessionId,
         subjectId: result.subject_id || '',
         examId: result.exam_id || '',
         studentId: result.student_id || '',
@@ -65,6 +71,7 @@ const AdminResults = () => {
       setEditingResult(null);
       setFormData({
         courseId: selectedCourse || '',
+        sessionId: selectedSession || '',
         subjectId: '',
         examId: selectedExam || '',
         studentId: '',
@@ -243,6 +250,9 @@ const AdminResults = () => {
   if (formData.courseId) {
     filteredExams = filteredExams?.filter(exam => exam.course_id === formData.courseId);
   }
+  if (formData.sessionId) {
+    filteredExams = filteredExams?.filter(exam => exam.session_id === formData.sessionId);
+  }
   if (formData.subjectId) {
     filteredExams = filteredExams?.filter(exam => exam.subject_id === formData.subjectId);
   }
@@ -250,6 +260,9 @@ const AdminResults = () => {
   let filteredStudents = allStudents;
   if (formData.courseId) {
     filteredStudents = filteredStudents?.filter(student => student.course_id === formData.courseId);
+  }
+  if (formData.sessionId) {
+    filteredStudents = filteredStudents?.filter(student => student.session_id === formData.sessionId);
   }
 
   let bulkFilteredExams = allExams;
@@ -259,6 +272,12 @@ const AdminResults = () => {
   if (bulkFormData.subjectId) {
     bulkFilteredExams = bulkFilteredExams?.filter(exam => exam.subject_id === bulkFormData.subjectId);
   }
+
+  const filteredResults = results?.filter(r => {
+    if (selectedCourse && r.exams?.course_id !== selectedCourse) return false;
+    if (selectedSession && r.exams?.session_id !== selectedSession) return false;
+    return true;
+  });
 
   return (
     <div className="admin-results">
@@ -278,13 +297,14 @@ const AdminResults = () => {
       </div>
 
       <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem' }}>
-        <div className="grid grid-2">
+        <div className="grid grid-3">
           <div className="form-group">
             <label className="form-label">Filter by Course</label>
             <select
               value={selectedCourse}
               onChange={(e) => {
                 setSelectedCourse(e.target.value);
+                setSelectedSession('');
                 setSelectedExam(''); // Reset exam when course changes
               }}
               className="form-input"
@@ -293,6 +313,23 @@ const AdminResults = () => {
               <option value="">-- All Courses --</option>
               {courses && courses.map(course => (
                 <option key={course.id} value={course.id}>{course.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Filter by Session</label>
+            <select
+              value={selectedSession}
+              onChange={(e) => setSelectedSession(e.target.value)}
+              className="form-input"
+              disabled={!selectedCourse}
+            >
+              <option value="">-- All Sessions --</option>
+              {courses?.find(c => c.id === selectedCourse)?.sessions?.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})
+                </option>
               ))}
             </select>
           </div>
@@ -319,7 +356,7 @@ const AdminResults = () => {
           <div className="loading-screen" style={{ padding: '3rem' }}><div className="spinner" /></div>
         ) : resultsError ? (
           <div className="error-screen" style={{ padding: '3rem' }}>{resultsError}</div>
-        ) : (!results || results.length === 0) ? (
+        ) : (!filteredResults || filteredResults.length === 0) ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
             <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
             <p>No results found for the selected criteria. Create one to get started.</p>
@@ -339,7 +376,7 @@ const AdminResults = () => {
               </tr>
             </thead>
             <tbody>
-              {results.map(r => (
+              {filteredResults.map(r => (
                 <tr key={r.id}>
                   <td>
                     <div style={{ fontWeight: 500 }}>{r.students?.users?.full_name || 'Unknown'}</div>
@@ -549,7 +586,7 @@ const AdminResults = () => {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="grid grid-2">
+              <div className="grid grid-3">
                 <div className="form-group">
                   <label className="form-label">Select Course</label>
                   <select
@@ -558,6 +595,7 @@ const AdminResults = () => {
                     onChange={(e) => setFormData(prev => ({
                       ...prev,
                       courseId: e.target.value,
+                      sessionId: '',
                       subjectId: '',
                       examId: '',
                       studentId: ''
@@ -567,6 +605,23 @@ const AdminResults = () => {
                     <option value="">-- Select Course --</option>
                     {courses && courses.map(course => (
                       <option key={course.id} value={course.id}>{course.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Select Session (Optional)</label>
+                  <select
+                    value={formData.sessionId}
+                    onChange={(e) => setFormData({ ...formData, sessionId: e.target.value, studentId: '' })}
+                    className="form-input"
+                    disabled={!formData.courseId}
+                  >
+                    <option value="">-- All Sessions --</option>
+                    {modalCourseDetails?.sessions?.map(s => (
+                      <option key={s.id} value={s.id}>
+                        {s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})
+                      </option>
                     ))}
                   </select>
                 </div>

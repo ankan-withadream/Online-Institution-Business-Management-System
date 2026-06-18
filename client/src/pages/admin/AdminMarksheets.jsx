@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 // ─── Main Component ──────────────────────────────────────
 const AdminMarksheets = () => {
   const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
   const [selectedSemesters, setSelectedSemesters] = useState([]);
   const [selectedExams, setSelectedExams] = useState([]);
 
@@ -23,7 +24,7 @@ const AdminMarksheets = () => {
 
   const { data: courses, loading: coursesLoading } = useFetch('/courses');
   const { data: students, loading: studentsLoading } = useFetch(
-    selectedCourse ? `/students?courseId=${selectedCourse}` : null
+    selectedCourse ? `/students?courseId=${selectedCourse}${selectedSession ? `&sessionId=${selectedSession}` : ''}` : null
   );
 
   const courseDetails = courses?.find(c => c.id === selectedCourse);
@@ -34,6 +35,7 @@ const AdminMarksheets = () => {
   );
 
   useEffect(() => {
+    setSelectedSession('');
     setSelectedSemesters([]);
     setSelectedExams([]);
   }, [selectedCourse]);
@@ -234,21 +236,41 @@ const AdminMarksheets = () => {
         </p>
       </div>
 
-      {/* ── Course Selector ── */}
+      {/* ── Selection Card (Course + Session) ── */}
       <div className="card" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
-        <div className="form-group" style={{ margin: 0, maxWidth: '500px' }}>
-          <label className="form-label">Select Course</label>
-          <select
-            value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
-            className="form-input"
-            disabled={coursesLoading}
-          >
-            <option value="">-- Select Course --</option>
-            {courses && courses.map(course => (
-              <option key={course.id} value={course.id}>{course.name}</option>
-            ))}
-          </select>
+        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ margin: 0, minWidth: '300px', flex: 1 }}>
+            <label className="form-label">Select Course</label>
+            <select
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              className="form-input"
+              disabled={coursesLoading}
+            >
+              <option value="">-- Select Course --</option>
+              {courses && courses.map(course => (
+                <option key={course.id} value={course.id}>{course.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {selectedCourse && (
+            <div className="form-group" style={{ margin: 0, minWidth: '300px', flex: 1 }}>
+              <label className="form-label">Select Session (Optional)</label>
+              <select
+                value={selectedSession}
+                onChange={(e) => setSelectedSession(e.target.value)}
+                className="form-input"
+              >
+                <option value="">-- All Sessions --</option>
+                {courses?.find(c => c.id === selectedCourse)?.sessions?.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 

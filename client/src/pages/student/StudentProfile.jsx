@@ -8,6 +8,7 @@ const StudentProfile = () => {
   const rows = [
     ['Student ID', profile.student_id_number],
     ['Course', profile.courses?.name],
+    ['Session', profile.sessions ? `${profile.sessions.session_type} (${profile.sessions.start_date || 'TBA'} - ${profile.sessions.end_date || 'TBA'})` : '—'],
     ['Date of Birth', profile.date_of_birth],
     ['Gender', profile.gender],
     ['Phone', profile.phone],

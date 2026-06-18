@@ -18,7 +18,7 @@ const FranchiseApplications = () => {
       try {
         const { data: myFranchise } = await api.get('/franchises/me');
         if (myFranchise) setFranchise(myFranchise);
-      } catch {}
+      } catch { }
       setLoading(false);
     };
     fetchFranchise();
@@ -203,6 +203,18 @@ const ManualApplication = ({ franchise }) => {
             {errors.courseId && <span className="form-error">Required</span>}
           </div>
           <div className="form-group">
+            <label className="form-label">Session *</label>
+            <select className="form-select" {...register('sessionId', { required: true })} disabled={!watch('courseId')}>
+              <option value="">Select Session</option>
+              {franchiseCourses.find(c => c.id === watch('courseId'))?.sessions?.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.session_type} ({s.start_date || 'TBA'} - {s.end_date || 'TBA'})
+                </option>
+              ))}
+            </select>
+            {errors.sessionId && <span className="form-error">Required</span>}
+          </div>
+          <div className="form-group">
             <label className="form-label">Password *</label>
             <input className="form-input" type="password" {...register('password', { required: true, minLength: 8 })} />
             {errors.password?.type === 'required' && <span className="form-error">Required</span>}
@@ -292,8 +304,8 @@ const BulkApplication = ({ franchise }) => {
   const franchiseCourses = courses?.filter(c => franchise?.course_ids?.includes(c.id)) || [];
 
   const downloadTemplate = () => {
-    const headers = 'fullName,email,fatherName,motherName,phone,dateOfBirth,gender,courseId,password,address,city,state,pincode';
-    const sampleRow = 'John Doe,john@example.com,Father Name,Mother Name,9876543210,2000-01-15,male,COURSE_UUID_HERE,Password@123,123 Street,City,State,123456';
+    const headers = 'fullName,email,fatherName,motherName,phone,dateOfBirth,gender,courseId,sessionId,password,address,city,state,pincode';
+    const sampleRow = 'John Doe,john@example.com,Father Name,Mother Name,9876543210,2000-01-15,male,COURSE_UUID_HERE,SESSION_UUID_HERE,Password@123,123 Street,City,State,123456';
     const csvContent = `${headers}\n${sampleRow}`;
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -318,7 +330,7 @@ const BulkApplication = ({ franchise }) => {
       }
 
       const headers = lines[0].split(',').map(h => h.trim());
-      const requiredHeaders = ['fullName', 'email', 'phone', 'dateOfBirth', 'gender', 'courseId', 'password', 'address', 'city', 'state', 'pincode'];
+      const requiredHeaders = ['fullName', 'email', 'phone', 'dateOfBirth', 'gender', 'courseId', 'sessionId', 'password', 'address', 'city', 'state', 'pincode'];
       const missing = requiredHeaders.filter(h => !headers.includes(h));
       if (missing.length > 0) {
         setParseErrors([`Missing required columns: ${missing.join(', ')}`]);
@@ -337,7 +349,7 @@ const BulkApplication = ({ franchise }) => {
         headers.forEach((h, idx) => { row[h] = values[idx]; });
 
         // Basic validation
-        if (!row.fullName || !row.email || !row.phone || !row.courseId || !row.password) {
+        if (!row.fullName || !row.email || !row.phone || !row.courseId || !row.sessionId || !row.password) {
           errors.push(`Row ${i}: missing required fields`);
           continue;
         }
@@ -469,10 +481,21 @@ const BulkApplication = ({ franchise }) => {
         </button>
         {franchiseCourses.length > 0 && (
           <div style={{ marginTop: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>
-            <strong>Your Course IDs:</strong>
-            <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <strong>Your Course IDs and Session IDs:</strong>
+            <div style={{ marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {franchiseCourses.map(c => (
-                <code key={c.id} style={{ fontSize: '0.75rem' }}>{c.name}: {c.id}</code>
+                <div key={c.id}>
+                  <code style={{ fontSize: '0.75rem', fontWeight: 600 }}>{c.name}: {c.id}</code>
+                  {c.sessions?.length > 0 && (
+                    <div style={{ marginLeft: '1rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                      {c.sessions.map(s => (
+                        <code key={s.id} style={{ fontSize: '0.7rem', color: '#4b5563' }}>
+                          ↳ {s.session_type} ({s.start_date || 'TBA'} - {s.end_date || 'TBA'}): {s.id}
+                        </code>
+                      ))}
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>

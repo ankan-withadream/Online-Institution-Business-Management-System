@@ -22,6 +22,7 @@ export const resetPasswordSchema = z.object({
 
 export const admissionSchema = z.object({
   courseId: z.string().uuid(),
+  sessionId: z.string().uuid().optional(),
   franchiseId: z.string().uuid().optional(),
   fullName: z.string().min(2),
   fatherName: z.string().min(2).optional(),
@@ -51,11 +52,18 @@ export const courseSchema = z.object({
     maxMarks: z.number().int().positive().optional().default(100),
     semester: z.number().int().positive().optional().default(1),
   })).optional(),
+  sessions: z.array(z.object({
+    id: z.string().uuid().optional(),
+    sessionType: z.enum(['Day', 'Night', 'Normal']).default('Normal'),
+    startDate: z.string().optional().nullable(),
+    endDate: z.string().optional().nullable(),
+  })).optional(),
 });
 
 export const examSchema = z.object({
   name: z.string().min(2),
   courseId: z.string().uuid(),
+  sessionId: z.string().uuid(),
   subjectId: z.string().uuid(),
   examDate: z.string(),
   startTime: z.string(),

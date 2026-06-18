@@ -4,7 +4,7 @@ export const getAll = async (_req, res) => {
   try {
     let query = supabaseAdmin
       .from('courses')
-      .select('*, subjects(*)')
+      .select('*, subjects(*), sessions(*)')
       .order('created_at', { ascending: false });
 
     if (!_req.user || _req.user.role !== 'admin') {
@@ -24,7 +24,7 @@ export const getById = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('courses')
-      .select('*, subjects(*)')
+      .select('*, subjects(*), sessions(*)')
       .eq('id', req.params.id)
       .single();
 
@@ -38,7 +38,7 @@ export const getById = async (req, res) => {
 
 export const create = async (req, res) => {
   try {
-    const { name, slug, description, durationMonths, fee, isActive, subjects } = req.body;
+    const { name, slug, description, durationMonths, fee, isActive, subjects, sessions } = req.body;
     const { data, error } = await supabaseAdmin.from('courses').insert({
       name,
       slug,
@@ -63,6 +63,17 @@ export const create = async (req, res) => {
       if (subErr) throw subErr;
     }
 
+    if (sessions && sessions.length > 0) {
+      const parsedSessions = sessions.map(s => ({
+        course_id: data.id,
+        session_type: s.sessionType || s.session_type || 'Normal',
+        start_date: s.startDate || s.start_date || null,
+        end_date: s.endDate || s.end_date || null
+      }));
+      const { error: sessErr } = await supabaseAdmin.from('sessions').insert(parsedSessions);
+      if (sessErr) throw sessErr;
+    }
+
     res.status(201).json(data);
   } catch (err) {
     console.error('Create course error:', err);
@@ -72,7 +83,10 @@ export const create = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
-    const { name, slug, description, durationMonths, fee, isActive, subjects } = req.body;
+    const courseId = req.params.id;
+    const { name, slug, description, durationMonths, fee, isActive, subjects, sessions } = req.body;
+
+    // 1. Update course row
     const { data: courseData, error: courseError } = await supabaseAdmin
       .from('courses')
       .update({
@@ -84,31 +98,32 @@ export const update = async (req, res) => {
         is_active: isActive,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', req.params.id)
+      .eq('id', courseId)
       .select()
       .single();
 
     if (courseError) throw courseError;
     if (!courseData) return res.status(404).json({ error: 'Course not found' });
 
+    // 2. Sync subjects (delete removed, upsert remaining)
     if (subjects) {
       const { data: existingSubjects } = await supabaseAdmin
         .from('subjects')
         .select('id, code')
-        .eq('course_id', req.params.id);
+        .eq('course_id', courseId);
 
       const incomingCodes = subjects.map(s => s.code);
-      const codesToDelete = existingSubjects
+      const idsToDelete = existingSubjects
         ?.filter(es => !incomingCodes.includes(es.code))
-        .map(es => es.code) || [];
+        .map(es => es.id) || [];
 
-      if (codesToDelete.length > 0) {
-        await supabaseAdmin.from('subjects').delete().in('code', codesToDelete);
+      if (idsToDelete.length > 0) {
+        await supabaseAdmin.from('subjects').delete().in('id', idsToDelete);
       }
 
       if (subjects.length > 0) {
         const parsedSubjects = subjects.map(s => ({
-          course_id: req.params.id,
+          course_id: courseId,
           name: s.name,
           code: s.code,
           description: s.description,
@@ -116,12 +131,68 @@ export const update = async (req, res) => {
           semester: s.semester || 1
         }));
 
-        const { error: subErr } = await supabaseAdmin.from('subjects').upsert(parsedSubjects, { onConflict: 'code' });
+        const { error: subErr } = await supabaseAdmin
+          .from('subjects')
+          .upsert(parsedSubjects, { onConflict: 'code' });
         if (subErr) throw subErr;
       }
     }
 
-    res.json(courseData);
+    // 3. Sync sessions (delete removed, update existing, insert new)
+    if (sessions) {
+      const { data: existingSessions } = await supabaseAdmin
+        .from('sessions')
+        .select('id')
+        .eq('course_id', courseId);
+
+      const incomingIds = sessions.filter(s => s.id).map(s => s.id);
+      const idsToDelete = existingSessions
+        ?.filter(es => !incomingIds.includes(es.id))
+        .map(es => es.id) || [];
+
+      if (idsToDelete.length > 0) {
+        await supabaseAdmin.from('sessions').delete().in('id', idsToDelete);
+      }
+
+      const toUpdate = [];
+      const toInsert = [];
+
+      for (const s of sessions) {
+        const row = {
+          course_id: courseId,
+          session_type: s.sessionType || s.session_type || 'Normal',
+          start_date: s.startDate || s.start_date || null,
+          end_date: s.endDate || s.end_date || null,
+        };
+        if (s.id) {
+          row.id = s.id;
+          toUpdate.push(row);
+        } else {
+          toInsert.push(row);
+        }
+      }
+
+      if (toUpdate.length > 0) {
+        const { error: updErr } = await supabaseAdmin.from('sessions').upsert(toUpdate);
+        if (updErr) throw updErr;
+      }
+
+      if (toInsert.length > 0) {
+        const { error: insErr } = await supabaseAdmin.from('sessions').insert(toInsert);
+        if (insErr) throw insErr;
+      }
+    }
+
+    // 4. Return full course with relations
+    const { data: fullCourse, error: fetchErr } = await supabaseAdmin
+      .from('courses')
+      .select('*, subjects(*), sessions(*)')
+      .eq('id', courseId)
+      .single();
+
+    if (fetchErr) throw fetchErr;
+
+    res.json(fullCourse);
   } catch (err) {
     console.error('Update course error:', err);
     res.status(500).json({ error: 'Failed to update course' });

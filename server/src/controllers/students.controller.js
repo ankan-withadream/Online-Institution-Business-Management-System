@@ -4,7 +4,7 @@ export const getMe = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('students')
-      .select('*, courses(name, description, duration_months)')
+      .select('*, courses(name, description, duration_months), sessions(session_type, start_date, end_date)')
       .eq('user_id', req.user.id)
       .single();
 
@@ -20,11 +20,12 @@ export const getAll = async (req, res) => {
   try {
     let query = supabaseAdmin
       .from('students')
-      .select('*, users(email, full_name), courses(name)')
+      .select('*, users(email, full_name), courses(name), sessions(session_type, start_date, end_date)')
       .order('created_at', { ascending: false });
 
     if (req.query.status) query = query.eq('status', req.query.status);
     if (req.query.courseId) query = query.eq('course_id', req.query.courseId);
+    if (req.query.sessionId) query = query.eq('session_id', req.query.sessionId);
 
     const { data, error } = await query;
     if (error) throw error;
@@ -39,7 +40,7 @@ export const getById = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('students')
-      .select('*, users(email, full_name), courses(name, description)')
+      .select('*, users(email, full_name), courses(name, description), sessions(session_type, start_date, end_date)')
       .eq('id', req.params.id)
       .single();
 
@@ -86,8 +87,16 @@ export const verify = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
+    if (req.user.role === 'franchise') {
+      const { data: franchise } = await supabaseAdmin.from('franchises').select('id').eq('user_id', req.user.id).single();
+      const { data: student } = await supabaseAdmin.from('students').select('franchise_id').eq('id', req.params.id).single();
+      if (!franchise || !student || student.franchise_id !== franchise.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+
     const updates = {};
-    const allowed = ['course_id', 'phone', 'address', 'city', 'state', 'pincode', 'status', 'photo_url'];
+    const allowed = ['course_id', 'session_id', 'phone', 'address', 'city', 'state', 'pincode', 'status', 'photo_url'];
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
     }

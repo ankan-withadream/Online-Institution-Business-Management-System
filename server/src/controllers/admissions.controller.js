@@ -6,6 +6,7 @@ export const create = async (req, res) => {
     const body = req.body;
     const { data, error } = await supabaseAdmin.from('admissions').insert({
       course_id: body.courseId,
+      session_id: body.sessionId || null,
       franchise_id: body.franchiseId || null,
       full_name: body.fullName,
       father_name: body.fatherName || null,
@@ -34,7 +35,7 @@ export const getAll = async (req, res) => {
   try {
     let query = supabaseAdmin
       .from('admissions')
-      .select('*, courses(name)')
+      .select('*, courses(name), sessions(session_type, start_date, end_date)')
       .order('created_at', { ascending: false });
 
     if (req.query.status) {
@@ -68,7 +69,7 @@ export const getById = async (req, res) => {
 
 export const updateStatus = async (req, res) => {
   try {
-    const { status, adminRemarks } = req.body;
+    const { status, adminRemarks, sessionId } = req.body;
 
     // Get the admission
     const { data: admission, error: fetchError } = await supabaseAdmin
@@ -134,6 +135,7 @@ export const updateStatus = async (req, res) => {
           user_id: authData.user.id,
           student_id_number: studentIdNumber,
           course_id: admission.course_id,
+          session_id: sessionId || admission.session_id || null,
           franchise_id: admission.franchise_id,
           father_name: admission.father_name,
           mother_name: admission.mother_name,
@@ -201,6 +203,7 @@ export const bulkCreate = async (req, res) => {
 
     const records = admissions.map(a => ({
       course_id: a.courseId,
+      session_id: a.sessionId || null,
       franchise_id: franchiseId || null,
       full_name: a.fullName,
       father_name: a.fatherName || null,

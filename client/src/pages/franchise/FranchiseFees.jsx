@@ -11,6 +11,7 @@ const FranchiseFees = () => {
   const [feePayments, setFeePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
   const [payModal, setPayModal] = useState(null); // { student, course } or 'bulk'
   const [historyModal, setHistoryModal] = useState(null); // studentId
   const [submitting, setSubmitting] = useState(false);
@@ -61,11 +62,13 @@ const FranchiseFees = () => {
     } catch {}
   };
 
-  // Filter students by selected course
+  // Filter students by selected course and session
   const filteredStudents = useMemo(() => {
-    if (!selectedCourse) return students;
-    return students.filter(s => s.course_id === selectedCourse);
-  }, [students, selectedCourse]);
+    let result = students;
+    if (selectedCourse) result = result.filter(s => s.course_id === selectedCourse);
+    if (selectedSession) result = result.filter(s => s.session_id === selectedSession);
+    return result;
+  }, [students, selectedCourse, selectedSession]);
 
   // Calculate per-student fee summary
   const getStudentFeeSummary = (studentId, courseId) => {
@@ -83,7 +86,9 @@ const FranchiseFees = () => {
     const course = courses.find(c => c.id === selectedCourse);
     if (!course) return null;
 
-    const courseStudents = students.filter(s => s.course_id === selectedCourse);
+    let courseStudents = students.filter(s => s.course_id === selectedCourse);
+    if (selectedSession) courseStudents = courseStudents.filter(s => s.session_id === selectedSession);
+    
     let totalAmount = 0, totalPaid = 0, totalDue = 0;
     courseStudents.forEach(s => {
       const summary = getStudentFeeSummary(s.id, selectedCourse);
@@ -92,7 +97,7 @@ const FranchiseFees = () => {
       totalDue += summary.totalDue;
     });
     return { courseName: course.name, courseFee: course.fee, studentCount: courseStudents.length, totalAmount, totalPaid, totalDue };
-  }, [selectedCourse, courses, students, feePayments]);
+  }, [selectedCourse, selectedSession, courses, students, feePayments]);
 
   // Calculate payment amount based on type
   const calculatePayAmount = (courseFee, dueAmount) => {
@@ -222,12 +227,28 @@ const FranchiseFees = () => {
           <select
             className="form-select"
             value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
+            onChange={(e) => { setSelectedCourse(e.target.value); setSelectedSession(''); }}
           >
             <option value="">All Courses</option>
             {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
+        {selectedCourse && (
+          <div className="form-group" style={{ marginBottom: 0, minWidth: '250px' }}>
+            <select
+              className="form-select"
+              value={selectedSession}
+              onChange={(e) => setSelectedSession(e.target.value)}
+            >
+              <option value="">All Sessions</option>
+              {courses.find(c => c.id === selectedCourse)?.sessions?.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.session_type} ({s.start_date || 'TBA'} - {s.end_date || 'TBA'})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {selectedCourse && (
           <button className="btn btn-primary" onClick={openBulkPayModal}>
             <CreditCard size={18} /> Pay Fees (Bulk)

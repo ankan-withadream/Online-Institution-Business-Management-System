@@ -1,28 +1,64 @@
 import { useState, useEffect } from 'react';
-import { Eye, X } from 'lucide-react';
+import { Eye, X, Edit2 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const FranchiseStudents = () => {
   const [franchise, setFranchise] = useState(null);
   const [students, setStudents] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewingStudent, setViewingStudent] = useState(null);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [editFormData, setEditFormData] = useState({ course_id: '', session_id: '', status: 'active' });
+  const [submitting, setSubmitting] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      const { data: myFranchise } = await api.get('/franchises/me');
+      if (myFranchise) {
+        setFranchise(myFranchise);
+        const [studentsRes, coursesRes] = await Promise.all([
+          api.get(`/franchises/${myFranchise.id}/students`),
+          api.get(`/franchises/${myFranchise.id}/courses`)
+        ]);
+        setStudents(studentsRes.data);
+        setCourses(coursesRes.data);
+      }
+    } catch {}
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: myFranchise } = await api.get('/franchises/me');
-        if (myFranchise) {
-          setFranchise(myFranchise);
-          const { data } = await api.get(`/franchises/${myFranchise.id}/students`);
-          setStudents(data);
-        }
-      } catch {}
-      setLoading(false);
-    };
     fetchData();
   }, []);
+
+  const handleEdit = (student) => {
+    setEditingStudent(student);
+    setEditFormData({
+      course_id: student.course_id || '',
+      session_id: student.session_id || '',
+      status: student.status || 'active'
+    });
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.put(`/students/${editingStudent.id}`, editFormData);
+      toast.success('Student updated successfully');
+      setEditingStudent(null);
+      
+      const { data: studentsRes } = await api.get(`/franchises/${franchise.id}/students`);
+      setStudents(studentsRes);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update student');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
 
@@ -38,6 +74,7 @@ const FranchiseStudents = () => {
               <th>Name</th>
               <th>Email</th>
               <th>Course</th>
+              <th>Session</th>
               <th>Status</th>
               <th>Enrolled</th>
               <th style={{ textAlign: 'right' }}>Actions</th>
@@ -50,6 +87,7 @@ const FranchiseStudents = () => {
                 <td>{s.users?.full_name}</td>
                 <td>{s.users?.email}</td>
                 <td>{s.courses?.name}</td>
+                <td>{s.sessions?.session_type ? `${s.sessions.session_type} (${s.sessions.start_date || 'TBA'})` : '-'}</td>
                 <td>
                   <span className={`badge badge-${s.status === 'active' ? 'success' : s.status === 'graduated' ? 'info' : 'danger'}`}>
                     {s.status}
@@ -57,14 +95,24 @@ const FranchiseStudents = () => {
                 </td>
                 <td>{s.enrollment_date && format(new Date(s.enrollment_date), 'PP')}</td>
                 <td>
-                  <button
-                    onClick={() => setViewingStudent(s)}
-                    className="btn-icon"
-                    title="View details"
-                    style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                  >
-                    <Eye size={18} />
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => setViewingStudent(s)}
+                      className="btn-icon"
+                      title="View details"
+                      style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
+                    >
+                      <Eye size={18} />
+                    </button>
+                    <button
+                      onClick={() => handleEdit(s)}
+                      className="btn-icon"
+                      title="Edit student"
+                      style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -126,6 +174,12 @@ const FranchiseStudents = () => {
                   <div>{viewingStudent.courses?.name || '-'}</div>
                 </div>
                 <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Session</div>
+                  <div>{viewingStudent.sessions?.session_type ? `${viewingStudent.sessions.session_type} (${viewingStudent.sessions.start_date || 'TBA'} - ${viewingStudent.sessions.end_date || 'TBA'})` : '-'}</div>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Enrollment Date</div>
                   <div>{viewingStudent.enrollment_date ? format(new Date(viewingStudent.enrollment_date), 'PP') : '-'}</div>
                 </div>
@@ -161,6 +215,82 @@ const FranchiseStudents = () => {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
               <button onClick={() => setViewingStudent(null)} className="btn btn-secondary">Close</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingStudent && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Edit Student</h2>
+              <button onClick={() => setEditingStudent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label className="form-label">Assign Course</label>
+                <select
+                  className="form-select"
+                  value={editFormData.course_id}
+                  onChange={(e) => setEditFormData({ ...editFormData, course_id: e.target.value, session_id: '' })}
+                >
+                  <option value="">Select Course</option>
+                  {courses?.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {editFormData.course_id && (() => {
+                const selectedCourse = courses?.find(c => c.id === editFormData.course_id);
+                return (
+                  <div className="form-group">
+                    <label className="form-label">Assign Session</label>
+                    <select
+                      className="form-select"
+                      value={editFormData.session_id}
+                      onChange={(e) => setEditFormData({ ...editFormData, session_id: e.target.value })}
+                    >
+                      <option value="">No Session Assigned</option>
+                      {selectedCourse?.sessions?.map((session) => (
+                        <option key={session.id} value={session.id}>
+                          {session.session_type} ({session.start_date || 'TBA'} to {session.end_date || 'TBA'})
+                        </option>
+                      ))}
+                    </select>
+                    {(!selectedCourse?.sessions || selectedCourse.sessions.length === 0) && (
+                      <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.25rem' }}>This course has no sessions created yet.</p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select
+                  className="form-select"
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                >
+                  <option value="active">Active</option>
+                  <option value="graduated">Graduated</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" disabled={submitting}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

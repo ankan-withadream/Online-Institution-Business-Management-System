@@ -64,7 +64,7 @@ export const getByStudent = async (req, res) => {
 
     const { data, error } = await supabaseAdmin
       .from('results')
-      .select('*, exams(name, exam_date), subjects(name, code, max_marks)')
+      .select('*, exams(name, exam_date, session_id), subjects(name, code, max_marks)')
       .eq('student_id', req.params.studentId)
       .eq('published', true)
       .order('created_at', { ascending: false });
@@ -99,7 +99,7 @@ export const verify = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('results')
-      .select('*, students(student_id_number, users(full_name)), exams(name), subjects(name)')
+      .select('*, students(student_id_number, session_id, users(full_name)), exams(name, session_id), subjects(name)')
       .eq('verification_code', req.params.code)
       .eq('published', true)
       .single();
@@ -126,7 +126,7 @@ export const getAll = async (req, res) => {
   try {
     let query = supabaseAdmin
       .from('results')
-      .select('*, students(student_id_number, users(full_name)), exams(name, course_id), subjects(name)')
+      .select('*, students(student_id_number, session_id, users(full_name)), exams(name, course_id, session_id), subjects(name)')
       .order('created_at', { ascending: false });
 
     if (req.query.examId) {

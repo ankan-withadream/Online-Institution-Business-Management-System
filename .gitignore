@@ -10,3 +10,6 @@ client/package-lock.json
 
 
 /client/src/assets/
+AGENTS.md
+.agents/
+skills-lock.json

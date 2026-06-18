@@ -21,9 +21,12 @@ const AdminExams = () => {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [previewDocId, setPreviewDocId] = useState(null);
 
+  const [courseFilter, setCourseFilter] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     courseId: '',
+    sessionId: '',
     subjectId: '',
     examDate: '',
     startTime: '',
@@ -78,6 +81,7 @@ const AdminExams = () => {
       setFormData({
         name: exam.name || '',
         courseId: exam.course_id || '',
+        sessionId: exam.session_id || '',
         subjectId: exam.subject_id || '',
         examDate: exam.exam_date ? new Date(exam.exam_date).toISOString().split('T')[0] : '',
         startTime: exam.start_time || '',
@@ -91,6 +95,7 @@ const AdminExams = () => {
       setFormData({
         name: '',
         courseId: '',
+        sessionId: '',
         subjectId: '',
         examDate: '',
         startTime: '',
@@ -118,6 +123,7 @@ const AdminExams = () => {
       const payload = {
         name: formData.name,
         courseId: formData.courseId,
+        sessionId: formData.sessionId,
         subjectId: formData.subjectId || null,
         examDate: formData.examDate,
         startTime: formData.startTime,
@@ -180,6 +186,13 @@ const AdminExams = () => {
   };
 
   const selectedCourseDetails = courses?.find(c => c.id === formData.courseId);
+  const filterCourseDetails = courses?.find(c => c.id === courseFilter);
+
+  const filteredExams = exams?.filter(e => {
+    if (courseFilter && e.course_id !== courseFilter) return false;
+    if (sessionFilter && e.session_id !== sessionFilter) return false;
+    return true;
+  });
 
   if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
   if (error) return <div className="error-screen">{error}</div>;
@@ -196,8 +209,42 @@ const AdminExams = () => {
         </button>
       </div>
 
+      <div className="card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+          <div>
+            <label className="form-label" style={{ fontSize: '0.875rem' }}>Filter by Course</label>
+            <select
+              className="form-select"
+              value={courseFilter}
+              onChange={(e) => {
+                setCourseFilter(e.target.value);
+                setSessionFilter('');
+              }}
+            >
+              <option value="">All Courses</option>
+              {courses?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          {courseFilter && (
+            <div>
+              <label className="form-label" style={{ fontSize: '0.875rem' }}>Filter by Session</label>
+              <select
+                className="form-select"
+                value={sessionFilter}
+                onChange={(e) => setSessionFilter(e.target.value)}
+              >
+                <option value="">All Sessions</option>
+                {filterCourseDetails?.sessions?.map(s => (
+                  <option key={s.id} value={s.id}>{s.session_type} ({s.start_date || 'TBA'})</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="card table-container">
-        {(!exams || exams.length === 0) ? (
+        {(!filteredExams || filteredExams.length === 0) ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
             <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
             <p>No exams found. Create one to get started.</p>
@@ -208,6 +255,7 @@ const AdminExams = () => {
               <tr>
                 <th>Exam Name</th>
                 <th>Course</th>
+                <th>Session</th>
                 <th>Subject</th>
                 <th>Date</th>
                 <th>Time</th>
@@ -217,12 +265,13 @@ const AdminExams = () => {
               </tr>
             </thead>
             <tbody>
-              {exams.map(e => (
+              {filteredExams.map(e => (
                 <tr key={e.id}>
                   <td>
                     <div style={{ fontWeight: 500 }}>{e.name}</div>
                   </td>
                   <td>{e.courses?.name || '-'}</td>
+                  <td>{e.sessions?.session_type ? `${e.sessions.session_type} (${e.sessions.start_date || 'TBA'})` : '-'}</td>
                   <td>{e.subjects?.name || '-'}</td>
                   <td>{e.exam_date ? format(new Date(e.exam_date), 'PP') : '-'}</td>
                   <td>
@@ -338,6 +387,30 @@ const AdminExams = () => {
                   </select>
                 </div>
               </div>
+
+              {formData.courseId && (() => {
+                return (
+                  <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                    <label className="form-label">Target Session</label>
+                    <select
+                      required
+                      className="form-select"
+                      value={formData.sessionId}
+                      onChange={(e) => setFormData({ ...formData, sessionId: e.target.value })}
+                    >
+                      <option value="">-- Select Session --</option>
+                      {selectedCourseDetails?.sessions?.map((session) => (
+                        <option key={session.id} value={session.id}>
+                          {session.session_type} ({session.start_date || 'TBA'} to {session.end_date || 'TBA'})
+                        </option>
+                      ))}
+                    </select>
+                    {(!selectedCourseDetails?.sessions || selectedCourseDetails.sessions.length === 0) && (
+                      <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.25rem' }}>This course has no sessions created yet.</p>
+                    )}
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-2">
                 <div className="form-group">
@@ -493,11 +566,15 @@ const AdminExams = () => {
                   <div>{viewingExam.courses?.name || '-'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Subject</div>
-                  <div>{viewingExam.subjects?.name || '-'}</div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Session</div>
+                  <div>{viewingExam.sessions?.session_type ? `${viewingExam.sessions.session_type} (${viewingExam.sessions.start_date || 'TBA'})` : '-'}</div>
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Subject</div>
+                  <div>{viewingExam.subjects?.name || '-'}</div>
+                </div>
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Date</div>
                   <div>{viewingExam.exam_date ? format(new Date(viewingExam.exam_date), 'PPP') : '-'}</div>
