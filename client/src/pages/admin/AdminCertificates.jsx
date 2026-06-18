@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 
 const AdminCertificates = () => {
   const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedSession, setSelectedSession] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -18,8 +19,13 @@ const AdminCertificates = () => {
 
   const { data: courses, loading: coursesLoading } = useFetch('/courses');
   const { data: students, loading: studentsLoading } = useFetch(
-    selectedCourse ? `/students?courseId=${selectedCourse}` : null
+    selectedCourse ? `/students?courseId=${selectedCourse}${selectedSession ? `&sessionId=${selectedSession}` : ''}` : null
   );
+
+  const handleCourseChange = (e) => {
+    setSelectedCourse(e.target.value);
+    setSelectedSession('');
+  };
 
   const handleGenerateClick = async (student) => {
     setSelectedStudent(student);
@@ -201,12 +207,12 @@ const AdminCertificates = () => {
       </div>
 
       <div className="card" style={{ marginBottom: '2rem', padding: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', maxWidth: '600px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', maxWidth: '800px' }}>
           <div className="form-group" style={{ flex: 1, margin: 0 }}>
             <label className="form-label">Select Course</label>
             <select
               value={selectedCourse}
-              onChange={(e) => setSelectedCourse(e.target.value)}
+              onChange={handleCourseChange}
               className="form-input"
               disabled={coursesLoading}
             >
@@ -216,6 +222,25 @@ const AdminCertificates = () => {
               ))}
             </select>
           </div>
+
+          {selectedCourse && (
+            <div className="form-group" style={{ flex: 1, margin: 0 }}>
+              <label className="form-label">Select Session (Optional)</label>
+              <select
+                value={selectedSession}
+                onChange={(e) => setSelectedSession(e.target.value)}
+                className="form-input"
+              >
+                <option value="">-- All Sessions --</option>
+                {courses?.find(c => c.id === selectedCourse)?.sessions?.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <button 
             className="btn btn-secondary" 
             disabled={!selectedCourse || studentsLoading}

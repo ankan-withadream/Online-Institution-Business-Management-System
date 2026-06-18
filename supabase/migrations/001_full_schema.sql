@@ -40,6 +40,17 @@ CREATE TABLE courses (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- ─── 3a. SESSIONS ─────────────────────────────
+CREATE TABLE sessions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+  session_type TEXT CHECK (session_type IN ('Day', 'Night', 'Normal')),
+  start_date DATE,
+  end_date DATE,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
 -- ─── 4. FRANCHISES ──────────────────────────
 CREATE TABLE franchises (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -86,6 +97,7 @@ CREATE TABLE students (
   state TEXT,
   pincode TEXT,
   enrollment_date DATE,
+  session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'graduated', 'suspended')),
   photo_url TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -97,6 +109,7 @@ CREATE TABLE admissions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES users(id),
   course_id UUID REFERENCES courses(id),
+  session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
   franchise_id UUID REFERENCES franchises(id),
   full_name TEXT NOT NULL,
   father_name TEXT NOT NULL,
@@ -123,6 +136,7 @@ CREATE TABLE exams (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
   course_id UUID REFERENCES courses(id),
+  session_id UUID REFERENCES sessions(id),
   subject_id UUID REFERENCES subjects(id),
   exam_date DATE,
   start_time TIME,
@@ -234,6 +248,7 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notices ENABLE ROW LEVEL SECURITY;
@@ -258,13 +273,17 @@ CREATE POLICY "Admins can update users" ON users FOR UPDATE USING (is_admin());
 CREATE POLICY "Users can update own row" ON users FOR UPDATE USING (id = auth.uid());
 CREATE POLICY "Service can insert users" ON users FOR INSERT WITH CHECK (true);
 
--- ── COURSES (public read) ──
+-- ── COURSES & SESSIONS (public read) ──
 CREATE POLICY "Anyone can read active courses" ON courses FOR SELECT USING (is_active = true);
 CREATE POLICY "Admins manage courses" ON courses FOR ALL USING (is_admin());
+
+CREATE POLICY "Anyone can read sessions" ON sessions FOR SELECT USING (true);
+CREATE POLICY "Admins manage sessions" ON sessions FOR ALL USING (is_admin());
 
 -- ── STUDENTS ──
 CREATE POLICY "Students read own profile" ON students FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "Admins manage students" ON students FOR ALL USING (is_admin());
+CREATE POLICY "Franchises manage own students" ON students FOR ALL USING (franchise_id IN (SELECT id FROM franchises WHERE user_id = auth.uid()));
 
 -- ── ADMISSIONS ──
 CREATE POLICY "Public can insert admissions" ON admissions FOR INSERT WITH CHECK (true);

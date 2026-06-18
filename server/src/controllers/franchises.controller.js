@@ -168,7 +168,7 @@ export const getStudents = async (req, res) => {
 
     const { data, error } = await supabaseAdmin
       .from('students')
-      .select('*, users(full_name, email), courses(name)')
+      .select('*, users(full_name, email), courses(name), sessions(session_type, start_date, end_date)')
       .eq('franchise_id', req.params.id)
       .order('created_at', { ascending: false });
 
@@ -211,7 +211,7 @@ export const getCourses = async (req, res) => {
     // Get courses by IDs
     const { data: courses, error: courseErr } = await supabaseAdmin
       .from('courses')
-      .select('*, subjects(*)')
+      .select('*, subjects(*), sessions(*)')
       .in('id', franchise.course_ids);
 
     if (courseErr) throw courseErr;

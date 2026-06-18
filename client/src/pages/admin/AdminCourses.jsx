@@ -17,6 +17,7 @@ const AdminCourses = () => {
     durationMonths: '',
     fee: '',
     isActive: true,
+    sessions: [],
     subjects: [],
   });
 
@@ -43,6 +44,7 @@ const AdminCourses = () => {
         durationMonths: course.duration_months || '',
         fee: course.fee || '',
         isActive: course.is_active,
+        sessions: course.sessions ? course.sessions.map(s => ({ id: s.id, sessionType: s.session_type, startDate: s.start_date, endDate: s.end_date })) : [],
         subjects: course.subjects ? course.subjects.map(s => ({
           name: s.name,
           code: s.code,
@@ -60,6 +62,7 @@ const AdminCourses = () => {
         durationMonths: '',
         fee: '',
         isActive: true,
+        sessions: [],
         subjects: [],
       });
     }
@@ -270,6 +273,79 @@ const AdminCourses = () => {
 
               <div className="card" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Sessions</h3>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, sessions: [...prev.sessions, { sessionType: 'Normal', startDate: '', endDate: '' }] }))}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    <Plus size={16} /> Add Session
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {formData.sessions.map((session, index) => (
+                    <div key={index} style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--gray-200)', position: 'relative', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
+                        <select
+                          required
+                          value={session.sessionType || ''}
+                          onChange={(e) => {
+                            const newSessions = [...formData.sessions];
+                            newSessions[index].sessionType = e.target.value;
+                            setFormData({ ...formData, sessions: newSessions });
+                          }}
+                          className="form-select"
+                        >
+                          <option value="Day">Day</option>
+                          <option value="Night">Night</option>
+                          <option value="Normal">Normal</option>
+                        </select>
+                        <input
+                          type="date"
+                          value={session.startDate || ''}
+                          onChange={(e) => {
+                            const newSessions = [...formData.sessions];
+                            newSessions[index].startDate = e.target.value;
+                            setFormData({ ...formData, sessions: newSessions });
+                          }}
+                          className="form-input"
+                          title="Start Date"
+                        />
+                        <input
+                          type="date"
+                          value={session.endDate || ''}
+                          onChange={(e) => {
+                            const newSessions = [...formData.sessions];
+                            newSessions[index].endDate = e.target.value;
+                            setFormData({ ...formData, sessions: newSessions });
+                          }}
+                          className="form-input"
+                          title="End Date"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, sessions: prev.sessions.filter((_, i) => i !== index) }))}
+                        className="btn-icon"
+                        style={{ color: 'var(--danger-500)', padding: '0.5rem', background: 'none', border: 'none', cursor: 'pointer' }}
+                        title="Remove Session"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {formData.sessions.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--gray-500)', background: 'var(--gray-50)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--gray-300)' }}>
+                      <p style={{ fontSize: '0.875rem' }}>No sessions added. Add a session to assign students.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="card" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Subjects</h3>
                   <button
                     type="button"
@@ -456,6 +532,21 @@ const AdminCourses = () => {
                   <div>{viewingCourse.subjects?.length || 0} subject(s)</div>
                 </div>
               </div>
+              {viewingCourse.sessions && viewingCourse.sessions.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Sessions</div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {viewingCourse.sessions.map((session, i) => (
+                      <span key={i} className="badge badge-info" style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
+                        {session.session_type} 
+                        <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                          ({session.start_date || 'TBA'} - {session.end_date || 'TBA'})
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {viewingCourse.description && (
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Description</div>

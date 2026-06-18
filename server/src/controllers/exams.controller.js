@@ -2,10 +2,11 @@ import { supabaseAdmin } from '../config/supabase.js';
 
 export const create = async (req, res) => {
   try {
-    const { name, courseId, subjectId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
+    const { name, courseId, sessionId, subjectId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
     const { data, error } = await supabaseAdmin.from('exams').insert({
       name,
       course_id: courseId,
+      session_id: sessionId,
       subject_id: subjectId || null,
       exam_date: examDate,
       start_time: startTime,
@@ -27,22 +28,24 @@ export const getAll = async (req, res) => {
   try {
     let query = supabaseAdmin
       .from('exams')
-      .select('*, courses(name), subjects(name)')
+      .select('*, courses(name), sessions(session_type, start_date, end_date), subjects(name)')
       .order('exam_date', { ascending: true });
 
     if (req.query.courseId) query = query.eq('course_id', req.query.courseId);
+    if (req.query.sessionId) query = query.eq('session_id', req.query.sessionId);
     if (req.query.status) query = query.eq('status', req.query.status);
 
     // Students see only exams for their course
     if (req.user.role === 'student') {
       const { data: student } = await supabaseAdmin
         .from('students')
-        .select('course_id')
+        .select('course_id, session_id')
         .eq('user_id', req.user.id)
         .single();
 
       if (student) {
         query = query.eq('course_id', student.course_id);
+        if (student.session_id) query = query.eq('session_id', student.session_id);
       }
     }
 
@@ -59,7 +62,7 @@ export const getById = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('exams')
-      .select('*, courses(name), subjects(name)')
+      .select('*, courses(name), sessions(session_type, start_date, end_date), subjects(name)')
       .eq('id', req.params.id)
       .single();
 
@@ -73,12 +76,13 @@ export const getById = async (req, res) => {
 
 export const update = async (req, res) => {
   try {
-    const { name, courseId, subjectId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
+    const { name, courseId, sessionId, subjectId, examDate, startTime, endTime, totalMarks, passingMarks } = req.body;
     const { data, error } = await supabaseAdmin
       .from('exams')
       .update({
         name,
         course_id: courseId,
+        session_id: sessionId,
         subject_id: subjectId || null,
         exam_date: examDate,
         start_time: startTime,

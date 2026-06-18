@@ -14,6 +14,6 @@ router.get('/me', authenticate, authorize('student'), studentsController.getMe);
 // Admin
 router.get('/', authenticate, authorize('admin'), studentsController.getAll);
 router.get('/:id', authenticate, authorize('admin', 'student'), studentsController.getById);
-router.put('/:id', authenticate, authorize('admin'), studentsController.update);
+router.put('/:id', authenticate, authorize('admin', 'franchise'), studentsController.update);
 
 export default router;
