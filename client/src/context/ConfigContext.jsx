@@ -74,6 +74,8 @@ export const ConfigProvider = ({ children }) => {
   const franchiseDashboardConfig = useMemo(() => config?.franchiseDashboard ?? {}, [config]);
   const paymentsConfig = useMemo(() => config?.payments ?? {}, [config]);
   const detailLabels = useMemo(() => verifyConfig.detailLabels ?? {}, [verifyConfig]);
+  // Common config for organization details and branding.
+  const organizationConfig = useMemo(() => config?.Organization ?? {}, [config]);
 
   const buildDetails = useCallback(
     (detailsConfig, data, labelOverrides) => (
@@ -91,6 +93,7 @@ export const ConfigProvider = ({ children }) => {
     franchiseDashboardConfig,
     paymentsConfig,
     detailLabels,
+    organizationConfig,
     buildDetails,
   }), [
     config,
@@ -101,6 +104,7 @@ export const ConfigProvider = ({ children }) => {
     franchiseDashboardConfig,
     paymentsConfig,
     detailLabels,
+    organizationConfig,
     buildDetails,
   ]);
 

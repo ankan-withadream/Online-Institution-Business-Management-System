@@ -1,5 +1,11 @@
 {
   "_comment": "Client-side feature flags and UI configuration.",
+  "Organization": {
+    "_comment": "Organization details and branding configuration.",
+    "name": "Vivekananda Education & Health Training Institute",
+    "logoUrl": "/assets/logo_brand.png",
+    "faviconUrl": "/assets/favicon.ico"
+  },
   "verify": {
     "_comment": "Public verification page configuration.",
     "options": {
