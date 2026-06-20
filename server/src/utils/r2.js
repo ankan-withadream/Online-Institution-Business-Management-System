@@ -101,3 +101,13 @@ export const deleteObject = async (key) => {
 
   await r2Client.send(command);
 };
+
+export const getObjectStream = async ({ key }) => {
+  const command = new GetObjectCommand({
+    Bucket: env.R2_BUCKET,
+    Key: key,
+  });
+
+  const response = await r2Client.send(command);
+  return response.Body;
+};

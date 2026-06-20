@@ -1,18 +1,35 @@
-import { useState } from 'react';
-import { Plus, Edit2, Trash2, X, FileText, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, X, FileText, Eye, Download, Image as ImageIcon, ClipboardList } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import { uploadDocument } from '../../services/documents';
 
 const AdminExams = () => {
   const { data: exams, loading, error, refetch } = useFetch('/exams');
-  const { data: courses } = useFetch('/courses');
+  const { data: courses } = useFetch('/courses/admin/all');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
   const [viewingExam, setViewingExam] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [questionPaperFile, setQuestionPaperFile] = useState(null);
+
+  // Documents state — used in both edit modal (to show existing) and view modal
+  const [examDocuments, setExamDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [previewDocId, setPreviewDocId] = useState(null);
+
+  const [courseFilter, setCourseFilter] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('');
+  const [questionPaperFile, setQuestionPaperFile] = useState(null);
+
+  // Documents state — used in both edit modal (to show existing) and view modal
+  const [examDocuments, setExamDocuments] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [previewDocId, setPreviewDocId] = useState(null);
+
   const [courseFilter, setCourseFilter] = useState('');
   const [sessionFilter, setSessionFilter] = useState('');
   const [formData, setFormData] = useState({
@@ -24,8 +41,80 @@ const AdminExams = () => {
     startTime: '',
     endTime: '',
     totalMarks: '',
-    passingMarks: ''
+    passingMarks: '',
+    videoUrl: ''
   });
+
+  // Submissions modal state
+  const [submissionsExam, setSubmissionsExam] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+
+  const handleDownloadAll = () => {
+    if (!submissionsExam) return;
+    const token = localStorage.getItem('accessToken');
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/exams/${submissionsExam.id}/answers/download-all`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(res => {
+        if (!res.ok) throw new Error('Download failed');
+        const disposition = res.headers.get('Content-Disposition');
+        const match = disposition?.match(/filename="?(.+?)"?$/);
+        const filename = match?.[1] || `${submissionsExam.name.replace(/[^a-zA-Z0-9._-]/g, '_')}_answers.zip`;
+        return res.blob().then(blob => ({ blob, filename }));
+      })
+      .then(({ blob, filename }) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      })
+      .catch(err => {
+        console.error('Download all answers error:', err);
+        toast.error('Failed to download all answers');
+      });
+  };
+
+  // Fetch documents whenever the view modal opens (like AdminAdmissions)
+  useEffect(() => {
+    if (viewingExam) {
+      const fetchDocs = async () => {
+        setLoadingDocs(true);
+        setPreviewDocId(null);
+        try {
+          const res = await api.get(`/documents/entity/exam/${viewingExam.id}`);
+          setExamDocuments(res.data);
+        } catch (err) {
+          console.error('Failed to fetch exam documents', err);
+        } finally {
+          setLoadingDocs(false);
+        }
+      };
+      fetchDocs();
+    } else {
+      setExamDocuments([]);
+      setPreviewDocId(null);
+    }
+  }, [viewingExam]);
+
+  // Also fetch documents when editing an existing exam, so we can show current question paper
+  useEffect(() => {
+    if (isModalOpen && editingExam) {
+      const fetchDocs = async () => {
+        try {
+          const res = await api.get(`/documents/entity/exam/${editingExam.id}`);
+          setExamDocuments(res.data);
+        } catch (err) {
+          console.error('Failed to fetch exam documents for editing:', err);
+        }
+      };
+      fetchDocs();
+    } else if (!isModalOpen) {
+      setExamDocuments([]);
+    }
+  }, [isModalOpen, editingExam]);
 
   const handleOpenModal = (exam = null) => {
     if (exam) {
@@ -39,7 +128,8 @@ const AdminExams = () => {
         startTime: exam.start_time || '',
         endTime: exam.end_time || '',
         totalMarks: exam.total_marks || '',
-        passingMarks: exam.passing_marks || ''
+        passingMarks: exam.passing_marks || '',
+        videoUrl: exam.video_url || ''
       });
     } else {
       setEditingExam(null);
@@ -52,15 +142,18 @@ const AdminExams = () => {
         startTime: '',
         endTime: '',
         totalMarks: '',
-        passingMarks: ''
+        passingMarks: '',
+        videoUrl: ''
       });
     }
+    setQuestionPaperFile(null);
     setIsModalOpen(true);
   };
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditingExam(null);
+    setQuestionPaperFile(null);
   };
 
   const handleSubmit = async (e) => {
@@ -77,16 +170,41 @@ const AdminExams = () => {
         startTime: formData.startTime,
         endTime: formData.endTime,
         totalMarks: Number(formData.totalMarks),
-        passingMarks: Number(formData.passingMarks)
+        passingMarks: Number(formData.passingMarks),
+        videoUrl: formData.videoUrl || null,
       };
+
+      let savedExamId;
 
       if (editingExam) {
         await api.put(`/exams/${editingExam.id}`, payload);
+        savedExamId = editingExam.id;
         toast.success('Exam updated successfully');
       } else {
-        await api.post('/exams', payload);
+        const response = await api.post('/exams', payload);
+        savedExamId = response.data.id;
         toast.success('Exam created successfully');
       }
+
+      // Upload question paper as a document entity — same pattern as admissions
+      if (questionPaperFile && savedExamId) {
+        const uploadToast = toast.loading('Uploading question paper...');
+        try {
+          await uploadDocument({
+            file: questionPaperFile,
+            entityType: 'exam',
+            entityId: savedExamId,
+            documentType: 'question_paper',
+          });
+          toast.dismiss(uploadToast);
+          toast.success('Question paper uploaded');
+        } catch (uploadErr) {
+          toast.dismiss(uploadToast);
+          console.error('Failed to upload question paper:', uploadErr);
+          toast.error('Exam saved, but question paper upload failed');
+        }
+      }
+
       handleCloseModal();
       refetch();
     } catch (err) {
@@ -107,6 +225,26 @@ const AdminExams = () => {
       toast.error(err.response?.data?.error || 'Failed to delete exam');
     }
   };
+
+  useEffect(() => {
+    if (submissionsExam) {
+      const fetchSubmissions = async () => {
+        setLoadingSubmissions(true);
+        try {
+          const res = await api.get(`/exams/${submissionsExam.id}/answers`);
+          setSubmissions(res.data);
+        } catch (err) {
+          console.error('Failed to fetch submissions', err);
+          toast.error('Failed to load submissions');
+        } finally {
+          setLoadingSubmissions(false);
+        }
+      };
+      fetchSubmissions();
+    } else {
+      setSubmissions([]);
+    }
+  }, [submissionsExam]);
 
   const selectedCourseDetails = courses?.find(c => c.id === formData.courseId);
   const filterCourseDetails = courses?.find(c => c.id === courseFilter);
@@ -234,6 +372,14 @@ const AdminExams = () => {
                       >
                         <Trash2 size={18} />
                       </button>
+                      <button
+                        onClick={() => setSubmissionsExam(e)}
+                        className="btn btn-sm btn-info"
+                        title="View submissions"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                      >
+                        <ClipboardList size={16} /> Submissions
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -243,6 +389,7 @@ const AdminExams = () => {
         )}
       </div>
 
+      {/* Create / Edit Modal */}
       {isModalOpen && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '700px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -282,7 +429,7 @@ const AdminExams = () => {
                       setFormData(prev => ({ 
                         ...prev, 
                         courseId: newCourseId,
-                        subjectId: '' // reset subject when course changes
+                        subjectId: ''
                       }));
                     }}
                     className="form-input"
@@ -399,6 +546,51 @@ const AdminExams = () => {
                 </div>
               </div>
 
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Meeting / Video URL (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.videoUrl}
+                    onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                    className="form-input"
+                    placeholder="e.g. https://meet.google.com/..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Question Sheet PDF (Optional)</label>
+                  {/* Show current uploaded question paper when editing */}
+                  {editingExam && examDocuments.find(d => d.document_type === 'question_paper') && (
+                    <div style={{ marginBottom: '0.5rem', fontSize: '0.875rem', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <FileText size={14} />
+                      <span>
+                        Current: <strong>{examDocuments.find(d => d.document_type === 'question_paper').original_name || 'question_paper.pdf'}</strong>
+                      </span>
+                      <a
+                        href={examDocuments.find(d => d.document_type === 'question_paper').downloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: '#2563eb', textDecoration: 'underline', fontSize: '0.75rem' }}
+                      >
+                        Download
+                      </a>
+                    </div>
+                  )}
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={(e) => setQuestionPaperFile(e.target.files?.[0] || null)}
+                    className="form-input"
+                  />
+                  {questionPaperFile && (
+                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                      Selected: {questionPaperFile.name}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
                 <button
                   type="button"
@@ -421,15 +613,17 @@ const AdminExams = () => {
         </div>
       )}
 
+      {/* View Details Modal — documents fetched via useEffect, same as AdminAdmissions */}
       {viewingExam && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Exam Details</h2>
               <button onClick={() => setViewingExam(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
                 <X size={20} />
               </button>
             </div>
+
             <div style={{ display: 'grid', gap: '1rem' }}>
               <div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Exam Name</div>
@@ -475,9 +669,155 @@ const AdminExams = () => {
                   {viewingExam.status}
                 </span>
               </div>
+              {viewingExam.video_url && (
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Meeting / Video URL</div>
+                  <a href={viewingExam.video_url} target="_blank" rel="noreferrer" style={{ color: '#2563eb', textDecoration: 'underline', wordBreak: 'break-all' }}>
+                    {viewingExam.video_url}
+                  </a>
+                </div>
+              )}
+
+              {/* Documents section — identical approach to AdminAdmissions */}
+              <div style={{ marginTop: '0.5rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--gray-200)' }}>
+                  Documents
+                </h3>
+                {loadingDocs ? (
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Loading documents...</div>
+                ) : examDocuments.length > 0 ? (
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    {examDocuments.map((doc) => {
+                      const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.original_name || doc.file_url);
+                      const isPdf = /\.pdf$/i.test(doc.original_name || doc.file_url);
+                      const isPreviewing = previewDocId === doc.id;
+
+                      return (
+                        <div key={doc.id} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.75rem', border: '1px solid var(--gray-200)', borderRadius: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                              {isImage ? <ImageIcon size={20} color="#6b7280" /> : <FileText size={20} color="#6b7280" />}
+                              <div>
+                                <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{doc.original_name}</div>
+                                <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'capitalize' }}>{doc.document_type.replace(/_/g, ' ')}</div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              {(isImage || isPdf) && (
+                                <button
+                                  onClick={() => setPreviewDocId(isPreviewing ? null : doc.id)}
+                                  className="btn-icon"
+                                  style={{ padding: '0.5rem', background: 'var(--gray-100)', color: 'var(--gray-700)', borderRadius: '0.375rem', display: 'flex', alignItems: 'center', border: 'none', cursor: 'pointer' }}
+                                  title="Preview"
+                                >
+                                  <Eye size={16} />
+                                </button>
+                              )}
+                              <a
+                                href={doc.downloadUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn-icon"
+                                style={{ padding: '0.5rem', background: 'var(--primary-color)', color: 'white', borderRadius: '0.375rem', display: 'flex', alignItems: 'center' }}
+                                title="Download"
+                              >
+                                <Download size={16} />
+                              </a>
+                            </div>
+                          </div>
+                          {isPreviewing && (
+                            <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '0.75rem' }}>
+                              {isImage ? (
+                                <img src={doc.previewUrl || doc.downloadUrl} alt={doc.original_name} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain', borderRadius: '0.375rem' }} />
+                              ) : isPdf ? (
+                                <iframe src={doc.previewUrl || doc.downloadUrl} title={doc.original_name} style={{ width: '100%', height: '400px', border: 'none', borderRadius: '0.375rem' }} />
+                              ) : null}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280', fontStyle: 'italic' }}>No documents uploaded.</div>
+                )}
+              </div>
             </div>
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
               <button onClick={() => setViewingExam(null)} className="btn btn-secondary">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Submissions Modal */}
+      {submissionsExam && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '800px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Submissions: {submissionsExam.name}</h2>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <button
+                  onClick={handleDownloadAll}
+                  className="btn btn-sm btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                >
+                  <Download size={16} /> Download All
+                </button>
+                <button onClick={() => setSubmissionsExam(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {loadingSubmissions ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>Loading submissions...</div>
+            ) : submissions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
+                <ClipboardList size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                <p>No submissions yet.</p>
+              </div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Student Name</th>
+                    <th>Student ID</th>
+                    <th>Submitted At</th>
+                    <th style={{ textAlign: 'right' }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {submissions.map((s, i) => (
+                    <tr key={s.id}>
+                      <td>{i + 1}</td>
+                      <td style={{ fontWeight: 500 }}>{s.student?.user?.full_name || 'Unknown'}</td>
+                      <td style={{ color: '#6b7280', fontSize: '0.875rem' }}>{s.student?.student_id_number || '-'}</td>
+                      <td>{s.submitted_at ? format(new Date(s.submitted_at), 'PPpp') : '-'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        {s.document?.downloadUrl ? (
+                          <a
+                            href={s.document.downloadUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-sm btn-primary"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                          >
+                            <Download size={16} /> Download
+                          </a>
+                        ) : (
+                          <span style={{ color: '#6b7280', fontSize: '0.875rem' }}>No file</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button onClick={() => setSubmissionsExam(null)} className="btn btn-secondary">Close</button>
             </div>
           </div>
         </div>
