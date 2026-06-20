@@ -12,3 +12,5 @@ client/package-lock.json
 /client/src/assets/
 .agents/
 skills-lock.json
+.commandcode/
+.sisyphus/
