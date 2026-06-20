@@ -30,6 +30,8 @@ const AdminExams = () => {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [previewDocId, setPreviewDocId] = useState(null);
 
+  const [courseFilter, setCourseFilter] = useState('');
+  const [sessionFilter, setSessionFilter] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     courseId: '',
