@@ -14,15 +14,7 @@ const AdminExams = () => {
   const [editingExam, setEditingExam] = useState(null);
   const [viewingExam, setViewingExam] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [questionPaperFile, setQuestionPaperFile] = useState(null);
 
-  // Documents state — used in both edit modal (to show existing) and view modal
-  const [examDocuments, setExamDocuments] = useState([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
-  const [previewDocId, setPreviewDocId] = useState(null);
-
-  const [courseFilter, setCourseFilter] = useState('');
-  const [sessionFilter, setSessionFilter] = useState('');
   const [questionPaperFile, setQuestionPaperFile] = useState(null);
 
   // Documents state — used in both edit modal (to show existing) and view modal
