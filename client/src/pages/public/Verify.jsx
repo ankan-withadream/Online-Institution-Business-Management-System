@@ -143,6 +143,23 @@ const Verify = () => {
                 <CheckCircle size={20} style={{ color: '#16a34a' }} />
                 <strong style={{ color: '#166534' }}>Verified Successfully!</strong>
               </div>
+
+              {!isCertificate && verifyConfig?.studentPhoto?.enabled && result?.photoUrl && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                  <img
+                    src={result.photoUrl}
+                    alt="Student Photo"
+                    style={{
+                      width: verifyConfig.studentPhoto.width || 150,
+                      height: verifyConfig.studentPhoto.height || 150,
+                      objectFit: 'cover',
+                      borderRadius: '50%',
+                      border: '3px solid #16a34a',
+                    }}
+                  />
+                </div>
+              )}
+
               {detailItems.length > 0 && (
                 <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
                   {detailItems.map((item) => (

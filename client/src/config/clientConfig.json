@@ -36,6 +36,12 @@
       "showDownload": true,
       "showPreview": true
     },
+    "studentPhoto": {
+      "_comment": "Show the student's photo in the verification result.",
+      "enabled": true,
+      "width": 150,
+      "height": 150
+    },
     "detailLabels": {
       "studentName": "Student",
       "studentId": "Student ID",
