@@ -108,6 +108,105 @@ export const getByStudent = async (req, res) => {
   }
 };
 
+export const getMyFees = async (req, res) => {
+  try {
+    const { data: student, error: studentErr } = await supabaseAdmin
+      .from('students')
+      .select('id, course_id, franchise_id, courses(name, fee), sessions(session_type, start_date, end_date)')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (studentErr || !student) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    const courseFee = student.courses?.fee || 0;
+
+    const { data: payments, error: paymentsErr } = await supabaseAdmin
+      .from('fee_payments')
+      .select('*, courses(name, fee)')
+      .eq('student_id', student.id)
+      .order('created_at', { ascending: false });
+
+    if (paymentsErr) throw paymentsErr;
+
+    const totalPaid = (payments || [])
+      .filter(p => p.status === 'completed')
+      .reduce((sum, p) => sum + Number(p.paid_amount), 0);
+    const totalDue = Math.max(0, courseFee - totalPaid);
+
+    res.json({
+      student: {
+        id: student.id,
+        courseId: student.course_id,
+        franchiseId: student.franchise_id,
+        courseName: student.courses?.name,
+        courseFee,
+        session: student.sessions,
+      },
+      totalPaid,
+      totalDue,
+      payments: payments || [],
+    });
+  } catch (err) {
+    console.error('Get my fees error:', err);
+    res.status(500).json({ error: 'Failed to fetch fee details' });
+  }
+};
+
+export const createMyPayment = async (req, res) => {
+  try {
+    const { data: student, error: studentErr } = await supabaseAdmin
+      .from('students')
+      .select('id, course_id, franchise_id, courses(name, fee)')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (studentErr || !student) {
+      return res.status(404).json({ error: 'Student profile not found' });
+    }
+
+    const courseFee = student.courses?.fee || 0;
+
+    const { data: existingPayments } = await supabaseAdmin
+      .from('fee_payments')
+      .select('paid_amount')
+      .eq('student_id', student.id)
+      .eq('status', 'completed');
+
+    const totalPaid = (existingPayments || []).reduce((sum, p) => sum + Number(p.paid_amount), 0);
+    const totalDue = Math.max(0, courseFee - totalPaid);
+
+    const { paidAmount, paymentMethod, transactionId, paymentType, remarks } = req.body;
+
+    const payAmount = paidAmount !== undefined ? Number(paidAmount) : totalDue;
+    if (payAmount <= 0 || payAmount > totalDue) {
+      return res.status(400).json({ error: `Payment amount must be between 1 and ${totalDue}` });
+    }
+
+    const { data, error } = await supabaseAdmin.from('fee_payments').insert({
+      student_id: student.id,
+      course_id: student.course_id,
+      franchise_id: student.franchise_id,
+      to_be_paid_amount: courseFee,
+      paid_amount: payAmount,
+      due_amount: totalDue - payAmount,
+      payment_method: paymentMethod || 'upi',
+      transaction_id: transactionId,
+      payment_type: paymentType || 'full',
+      status: 'completed',
+      remarks: remarks || null,
+      paid_by: req.user.id,
+    }).select().single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (err) {
+    console.error('Create my payment error:', err);
+    res.status(500).json({ error: 'Failed to record payment' });
+  }
+};
+
 export const getAll = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin

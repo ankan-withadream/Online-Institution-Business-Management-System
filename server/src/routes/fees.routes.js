@@ -17,6 +17,10 @@ router.post('/bulk', authenticate, authorize('franchise', 'admin'), feesControll
 // Get fee payments by franchise
 router.get('/franchise/:franchiseId', authenticate, authorize('franchise', 'admin'), feesController.getByFranchise);
 
+// Student self-service endpoints
+router.get('/me', authenticate, authorize('student'), feesController.getMyFees);
+router.post('/me', authenticate, authorize('student'), feesController.createMyPayment);
+
 // Get fee payment history by student
 router.get('/student/:studentId', authenticate, authorize('franchise', 'admin'), feesController.getByStudent);
 

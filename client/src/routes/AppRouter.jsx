@@ -38,6 +38,7 @@ import AdminPayments from '../pages/admin/AdminPayments';
 import StudentDashboard from '../pages/student/StudentDashboard';
 import StudentProfile from '../pages/student/StudentProfile';
 import StudentExams from '../pages/student/StudentExams';
+import StudentPayments from '../pages/student/StudentPayments';
 import StudentResults from '../pages/student/StudentResults';
 import StudentCertificates from '../pages/student/StudentCertificates';
 
@@ -101,6 +102,7 @@ const AppRouter = () => {
             <Route index element={<StudentDashboard />} />
             <Route path="profile" element={<StudentProfile />} />
             <Route path="exams" element={<StudentExams />} />
+            <Route path="payments" element={<StudentPayments />} />
             <Route path="results" element={<StudentResults />} />
             <Route path="certificates" element={<StudentCertificates />} />
           </Route>

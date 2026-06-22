@@ -103,11 +103,64 @@ const FranchiseFees = () => {
   const calculatePayAmount = (courseFee, dueAmount) => {
     switch (paymentType) {
       case 'full': return dueAmount;
-      case 'half': return Math.min(courseFee * 0.5, dueAmount);
-      case 'quarter': return Math.min(courseFee * 0.25, dueAmount);
+      case 'half': return Math.min(dueAmount * 0.5, dueAmount);
+      case 'quarter': return Math.min(dueAmount * 0.25, dueAmount);
       case 'custom': return Math.min(Number(customAmount) || 0, dueAmount);
       default: return dueAmount;
     }
+  };
+
+  // For bulk: percentage applies to the combined total due across all students
+  const calculateBulkPayAmount = (totalDue) => {
+    switch (paymentType) {
+      case 'full': return totalDue;
+      case 'half': return Math.min(totalDue * 0.5, totalDue);
+      case 'quarter': return Math.min(totalDue * 0.25, totalDue);
+      case 'custom': return Math.min(Number(customAmount) || 0, totalDue);
+      default: return totalDue;
+    }
+  };
+
+  // Distribute total amount equally among students, capping each at their individual due
+  const distributeEvenly = (totalAmount, studentsWithDues) => {
+    let remaining = totalAmount;
+    const result = studentsWithDues.map(s => ({
+      ...s,
+      payAmount: 0,
+      remainingDue: s.dueAmount,
+    }));
+
+    while (remaining > 0) {
+      const batch = result.filter(s => s.remainingDue > 0);
+      if (batch.length === 0) break;
+      const perStudent = Math.floor(remaining / batch.length);
+
+      if (perStudent <= 0) {
+        for (const s of batch) {
+          if (remaining <= 0) break;
+          const add = Math.min(remaining, s.remainingDue);
+          s.payAmount += add;
+          s.remainingDue -= add;
+          remaining -= add;
+        }
+        break;
+      }
+
+      for (const s of batch) {
+        const add = Math.min(perStudent, s.remainingDue);
+        s.payAmount += add;
+        s.remainingDue -= add;
+        remaining -= add;
+      }
+    }
+
+    return result.map(s => ({
+      studentId: s.studentId,
+      courseId: s.courseId,
+      courseFee: s.courseFee,
+      payAmount: s.payAmount,
+      dueAmount: s.dueAmount - s.payAmount,
+    }));
   };
 
   const openPayModal = (student) => {
@@ -129,15 +182,15 @@ const FranchiseFees = () => {
       toast.error('Please select a course first');
       return;
     }
-    const unpaidStudents = filteredStudents.filter(s => {
-      const summary = getStudentFeeSummary(s.id, s.course_id);
-      return summary.totalDue > 0;
-    });
+    const unpaidStudents = filteredStudents
+      .filter(s => getStudentFeeSummary(s.id, s.course_id).totalDue > 0)
+      .map(s => ({ ...s, ...getStudentFeeSummary(s.id, s.course_id) }));
     if (unpaidStudents.length === 0) {
       toast.error('All students have paid their fees');
       return;
     }
-    setPayModal({ bulk: true, students: unpaidStudents, courseId: selectedCourse });
+    const totalBulkDue = unpaidStudents.reduce((sum, s) => sum + s.totalDue, 0);
+    setPayModal({ bulk: true, students: unpaidStudents, courseId: selectedCourse, totalBulkDue });
     setPaymentType('full');
     setCustomAmount('');
     setTransactionId('');
@@ -154,23 +207,36 @@ const FranchiseFees = () => {
     setSubmitting(true);
     try {
       if (payModal.bulk) {
-        // Bulk payment
-        const payments = payModal.students.map(s => {
-          const summary = getStudentFeeSummary(s.id, s.course_id);
-          const payAmount = calculatePayAmount(summary.courseFee, summary.totalDue);
-          return {
-            studentId: s.id,
-            courseId: s.course_id,
+        // Bulk payment: total amount from combined due, then split equally
+        const totalPayAmount = calculateBulkPayAmount(payModal.totalBulkDue);
+        if (totalPayAmount <= 0) {
+          toast.error('Payment amount must be greater than 0');
+          setSubmitting(false);
+          return;
+        }
+
+        const studentsWithDues = payModal.students.map(s => ({
+          studentId: s.id,
+          courseId: s.course_id,
+          courseFee: s.courseFee,
+          dueAmount: s.totalDue,
+        }));
+
+        const distributed = distributeEvenly(totalPayAmount, studentsWithDues);
+        const payments = distributed
+          .filter(p => p.payAmount > 0)
+          .map(p => ({
+            studentId: p.studentId,
+            courseId: p.courseId,
             franchiseId: franchise.id,
-            toBePaidAmount: summary.courseFee,
-            paidAmount: payAmount,
-            dueAmount: summary.totalDue - payAmount,
+            toBePaidAmount: p.courseFee,
+            paidAmount: p.payAmount,
+            dueAmount: p.dueAmount,
             paymentMethod,
-            transactionId,
+            transactionId: transactionId.trim(),
             paymentType,
-            remarks,
-          };
-        }).filter(p => p.paidAmount > 0);
+            remarks: remarks.trim() || null,
+          }));
 
         await api.post('/fees/bulk', { payments });
         toast.success(`${payments.length} payments recorded`);
@@ -369,8 +435,26 @@ const FranchiseFees = () => {
               </div>
             )}
 
-            {/* Fee Info (for individual) */}
-            {!payModal.bulk && payModal.summary && (
+            {/* Fee Info */}
+            {payModal.bulk ? (
+              /* Bulk: combined totals across all selected students */
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Fee</div>
+                  <div style={{ fontWeight: 600 }}>₹{payModal.students.reduce((s, st) => s + st.courseFee, 0).toLocaleString()}</div>
+                </div>
+                <div style={{ background: '#f0fdf4', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Paid</div>
+                  <div style={{ fontWeight: 600, color: '#22c55e' }}>₹{payModal.students.reduce((s, st) => s + st.totalPaid, 0).toLocaleString()}</div>
+                </div>
+                <div style={{ background: '#fef2f2', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Due</div>
+                  <div style={{ fontWeight: 600, color: '#ef4444' }}>₹{payModal.totalBulkDue.toLocaleString()}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.15rem' }}>({payModal.students.length} students)</div>
+                </div>
+              </div>
+            ) : payModal.summary && (
+              /* Individual student fee summary */
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div style={{ background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
                   <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Fee</div>
@@ -424,8 +508,18 @@ const FranchiseFees = () => {
               </div>
             )}
 
-            {/* Calculated amount display */}
-            {!payModal.bulk && payModal.summary && (
+            {/* Calculated amount display — individual & bulk */}
+            {payModal.bulk ? (
+              <div style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Amount to pay: </span>
+                <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary-600)' }}>
+                  ₹{calculateBulkPayAmount(payModal.totalBulkDue).toLocaleString()}
+                </span>
+                <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.3rem' }}>
+                  (₹{Math.floor(calculateBulkPayAmount(payModal.totalBulkDue) / payModal.students.length).toLocaleString()} per student, {payModal.students.length} students)
+                </div>
+              </div>
+            ) : payModal.summary && (
               <div style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', textAlign: 'center' }}>
                 <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Amount to pay: </span>
                 <span style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--primary-600)' }}>

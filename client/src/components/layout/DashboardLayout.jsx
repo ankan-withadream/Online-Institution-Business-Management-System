@@ -25,6 +25,7 @@ const studentNav = [
   { path: '/student', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/student/profile', label: 'Profile', icon: Users },
   { path: '/student/exams', label: 'Exams', icon: ClipboardList },
+  { path: '/student/payments', label: 'Payments', icon: CreditCard },
   { path: '/student/results', label: 'Results', icon: Award },
   { path: '/student/certificates', label: 'Certificates', icon: GraduationCap },
 ];

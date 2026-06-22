@@ -108,8 +108,8 @@ const AdminPayments = () => {
   const calculatePayAmount = (courseFee, dueAmount) => {
     switch (paymentType) {
       case 'full': return dueAmount;
-      case 'half': return Math.min(courseFee * 0.5, dueAmount);
-      case 'quarter': return Math.min(courseFee * 0.25, dueAmount);
+      case 'half': return Math.min(dueAmount * 0.5, dueAmount);
+      case 'quarter': return Math.min(dueAmount * 0.25, dueAmount);
       case 'custom': return Math.min(Number(customAmount) || 0, dueAmount);
       default: return dueAmount;
     }
