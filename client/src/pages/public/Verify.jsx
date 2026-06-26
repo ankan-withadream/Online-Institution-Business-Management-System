@@ -63,6 +63,8 @@ const Verify = () => {
       courseName: result.course,
       issueDate: result.issueDate,
       certificateCode: result.certificateNumber,
+      studentIdNumber: result.studentId,
+      photoUrl: result.photoUrl,
     }
     : null;
   const previewContainerStyle = {

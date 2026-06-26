@@ -1,77 +1,109 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import certificateBg from '../../assets/certificate.jpeg';
+
+// A4 portrait: 595 x 842 pt. Background image (1089x1600) is portrait.
+// We use A4 portrait so the image fills the page naturally.
 
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
-    backgroundColor: '#ffffff',
-    padding: 40,
+    padding: 0,
     fontFamily: 'Helvetica',
   },
-  borderWrapper: {
-    border: '4pt solid #1e3a8a',
-    padding: 20,
+  // Single wrapper with position: relative so all absolute children
+  // (the background image, the metadata footer) stay on THIS page
+  // instead of flowing onto the next.
+  pageWrapper: {
     flex: 1,
     position: 'relative',
   },
-  innerBorder: {
-    border: '1pt solid #1e3a8a',
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  content: {
     flex: 1,
-    padding: 30,
+    flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  headerText: {
-    fontSize: 42,
-    fontWeight: 'extrabold',
-    color: '#1e3a8a',
-    marginBottom: 10,
-    fontFamily: 'Helvetica-Bold',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  subHeader: {
-    fontSize: 18,
-    color: '#4b5563',
-    marginBottom: 40,
-    fontFamily: 'Helvetica-Oblique',
-    letterSpacing: 2,
+    justifyContent: 'flex-start',
+    paddingTop: 270,
+    paddingHorizontal: 60,
   },
   certifyText: {
     fontSize: 14,
-    color: '#6b7280',
-    marginBottom: 10,
+    color: '#374151',
+    marginBottom: 8,
+    fontFamily: 'Helvetica-Oblique',
   },
   studentName: {
-    fontSize: 36,
-    color: '#111827',
-    marginBottom: 10,
-    fontFamily: 'Helvetica-Bold',
-    borderBottom: '1pt solid #cbd5e1',
-    paddingBottom: 5,
-    minWidth: 400,
+    fontSize: 38,
+    color: '#1e3a8a',
+    // marginBottom: 4,
+    marginTop: 8,
+    fontFamily: 'Helvetica-Oblique',
     textAlign: 'center',
+    letterSpacing: 1,
+  },
+  photo: {
+    width: 90,
+    height: 110,
+    objectFit: 'cover',
+    marginTop: -94,
+    marginLeft: 431,
+    border: '2pt solid #1e3a8a',
+  },
+  fatherName: {
+    fontSize: 20,
+    color: '#313740',
+    marginBottom: 6,
+    marginTop: 30,
+    fontFamily: 'Helvetica-Oblique',
+    textAlign: 'center',
+  },
+  studentId: {
+    fontSize: 15,
+    color: '#363940',
+    marginTop: 32,
+    marginLeft: 175,
+    fontFamily: 'Helvetica',
+    textAlign: 'center',
+    letterSpacing: 1,
+  },
+  underline: {
+    width: 380,
+    borderBottom: '1pt solid #1e3a8a',
+    marginBottom: 24,
   },
   courseText: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 20,
-    marginBottom: 10,
+    fontSize: 13,
+    color: '#374151',
+    marginBottom: 8,
+    fontFamily: 'Helvetica-Oblique',
   },
   courseName: {
-    fontSize: 24,
+    fontSize: 22,
     color: '#1e3a8a',
-    marginBottom: 40,
+    marginBottom: 30,
+    marginTop: 100,
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
-    maxWidth: '80%',
+    maxWidth: '85%',
+  },
+  dateRow: {
+    fontSize: 12,
+    color: '#374151',
+    marginBottom: 60,
+    fontFamily: 'Helvetica',
   },
   footerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    marginTop: 50,
-    paddingHorizontal: 40,
+    width: '80%',
+    marginTop: 'auto',
+    marginBottom: 200,
   },
   signatureBlock: {
     alignItems: 'center',
@@ -79,69 +111,84 @@ const styles = StyleSheet.create({
   signatureLine: {
     width: 150,
     borderBottom: '1pt solid #4b5563',
-    marginBottom: 5,
+    marginBottom: 6,
   },
   signatureText: {
-    fontSize: 12,
-    color: '#4b5563',
+    fontSize: 11,
+    color: '#374151',
+    fontFamily: 'Helvetica-Bold',
   },
   metadataSection: {
     position: 'absolute',
-    bottom: 20,
-    left: 30,
+    bottom: 40,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    width: '100%',
-    paddingRight: 60,
+    paddingHorizontal: 50,
   },
   metadataText: {
-    fontSize: 10,
-    color: '#9ca3af',
-  }
+    fontSize: 9,
+    color: '#6b7280',
+  },
 });
 
-const CertificateTemplate = ({ 
+const CertificateTemplate = ({
   certificates = [],
-  studentName, 
-  courseName, 
-  issueDate, 
-  certificateCode 
+  studentName,
+  courseName,
+  issueDate,
+  certificateCode,
+  fatherName,
+  studentIdNumber,
+  photoUrl,
 }) => {
-  const certsToRender = certificates.length > 0 
-    ? certificates 
-    : [{ studentName, courseName, issueDate, certificateCode }];
+  const certsToRender = certificates.length > 0
+    ? certificates
+    : [{ studentName, courseName, issueDate, certificateCode, fatherName, studentIdNumber, photoUrl }];
 
   return (
     <Document>
       {certsToRender.map((cert, index) => (
-        <Page key={index} size="A4" orientation="landscape" style={styles.page}>
-          <View style={styles.borderWrapper}>
-            <View style={styles.innerBorder}>
-              <Text style={styles.headerText}>Certificate of Completion</Text>
-              <Text style={styles.subHeader}>EDUCARE ACADEMY</Text>
-              
-              <Text style={styles.certifyText}>This is to proudly certify that</Text>
+        <Page key={index} size="A4" orientation="portrait" style={styles.page}>
+          <View style={styles.pageWrapper}>
+            <Image src={certificateBg} style={styles.backgroundImage} />
+
+            <View style={styles.content}>
+              {/* <Text style={styles.certifyText}>This is to certify that</Text> */}
+              {cert.photoUrl && (
+                <Image src={cert.photoUrl} style={styles.photo} />
+              )}
               <Text style={styles.studentName}>{cert.studentName}</Text>
-              
-              <Text style={styles.courseText}>has successfully completed the course requirements for</Text>
+              <Text style={styles.fatherName}>
+                {cert.fatherName || 'Test Father Name'}
+              </Text>
+              {cert.studentIdNumber && (
+                <Text style={styles.studentId}>{cert.studentIdNumber}</Text>
+              )}
+              {/* <View style={styles.underline} /> */}
+
+              {/* <Text style={styles.courseText}>has successfully completed the course</Text> */}
               <Text style={styles.courseName}>{cert.courseName}</Text>
-              
-              <View style={styles.footerSection}>
+
+              {/* <Text style={styles.dateRow}>on {cert.issueDate}</Text> */}
+
+              {/* <View style={styles.footerSection}>
                 <View style={styles.signatureBlock}>
-                  <View style={styles.signatureLine}></View>
-                  <Text style={styles.signatureText}>Date: {cert.issueDate}</Text>
+                  <View style={styles.signatureLine} />
+                  <Text style={styles.signatureText}>Date Issued</Text>
                 </View>
                 <View style={styles.signatureBlock}>
-                  <View style={styles.signatureLine}></View>
+                  <View style={styles.signatureLine} />
                   <Text style={styles.signatureText}>Authorized Signature</Text>
                 </View>
-              </View>
-              
-              <View style={styles.metadataSection}>
-                <Text style={styles.metadataText}>Certificate ID: {cert.certificateCode}</Text>
-                <Text style={styles.metadataText}>Verify at: portal.educare.com/verify</Text>
-              </View>
+              </View> */}
             </View>
+
+            {/* <View style={styles.metadataSection}>
+              <Text style={styles.metadataText}>Certificate ID: {cert.certificateCode}</Text>
+              <Text style={styles.metadataText}>Verify at: portal.educare.com/verify</Text>
+            </View> */}
           </View>
         </Page>
       ))}

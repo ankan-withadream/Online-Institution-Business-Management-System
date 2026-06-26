@@ -159,7 +159,10 @@ const AdminCertificates = () => {
             courseName: courseDetails?.name || 'Unknown Course',
             issueDate: response.data.issue_date,
             certificateCode: response.data.certificate_number,
-            fileUrl: response.data.file_url
+            fileUrl: response.data.file_url,
+            fatherName: studentInfo?.father_name,
+            studentIdNumber: studentInfo?.student_id_number,
+            photoUrl: response.data.photoUrl,
           });
         }
 
@@ -184,13 +187,16 @@ const AdminCertificates = () => {
   const courseDetails = courses?.find(c => c.id === selectedCourse);
   
   const isBulk = Array.isArray(generatedCert);
-  const templateProps = isBulk 
+  const templateProps = isBulk
     ? { certificates: generatedCert }
     : {
         studentName: selectedStudent?.users?.full_name || 'Student Name',
         courseName: courseDetails?.name || 'Course Name',
         issueDate: generatedCert?.issue_date,
         certificateCode: generatedCert?.certificate_number,
+        fatherName: selectedStudent?.father_name,
+        studentIdNumber: selectedStudent?.student_id_number,
+        photoUrl: generatedCert?.photoUrl,
       };
 
   const fileName = isBulk 

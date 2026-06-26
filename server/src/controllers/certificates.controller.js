@@ -1,8 +1,62 @@
 import { supabaseAdmin } from '../config/supabase.js';
-import { getDownloadUrl } from '../utils/r2.js';
+import { getDownloadUrl, getObjectStream } from '../utils/r2.js';
 import crypto from 'crypto';
 
+const getContentType = (key) => {
+  const lower = (key || '').toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+};
+
+const toDataUrl = (buffer, contentType) => {
+  const base64 = Buffer.from(buffer).toString('base64');
+  return `data:${contentType};base64,${base64}`;
+};
+
 const generateCertCode = () => `CERT-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+
+const resolveStudentPhotoUrl = async (studentId) => {
+  try {
+    const { data: student } = await supabaseAdmin
+      .from('students')
+      .select('user_id')
+      .eq('id', studentId)
+      .single();
+
+    if (!student?.user_id) return null;
+
+    const { data: admissions } = await supabaseAdmin
+      .from('admissions')
+      .select('id')
+      .eq('user_id', student.user_id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!admissions || admissions.length === 0) return null;
+
+    const { data: docs } = await supabaseAdmin
+      .from('documents')
+      .select('file_url')
+      .eq('entity_type', 'admission')
+      .eq('entity_id', admissions[0].id)
+      .eq('document_type', 'applicant_photo')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!docs || docs.length === 0) return null;
+
+    const stream = await getObjectStream({ key: docs[0].file_url });
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    if (chunks.length === 0) return null;
+    const buffer = Buffer.concat(chunks);
+    return toDataUrl(buffer, getContentType(docs[0].file_url));
+  } catch (err) {
+    console.error('Resolve student photo error:', err);
+    return null;
+  }
+};
 
 export const create = async (req, res) => {
   try {
@@ -21,7 +75,8 @@ export const create = async (req, res) => {
     }
 
     if (existingCert) {
-      return res.status(200).json({ ...existingCert, isExisting: true });
+      const photoUrl = await resolveStudentPhotoUrl(studentId);
+      return res.status(200).json({ ...existingCert, isExisting: true, photoUrl });
     }
 
     // Generate unique certificate number
@@ -43,7 +98,8 @@ export const create = async (req, res) => {
     }).select().single();
 
     if (error) throw error;
-    res.status(201).json({ ...data, isExisting: false });
+    const photoUrl = await resolveStudentPhotoUrl(studentId);
+    res.status(201).json({ ...data, isExisting: false, photoUrl });
   } catch (err) {
     console.error('Create certificate error:', err);
     res.status(500).json({ error: 'Failed to create certificate' });
@@ -82,11 +138,47 @@ export const verify = async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('certificates')
-      .select('*, students(student_id_number, users(full_name)), courses(name)')
+      .select('*, students(student_id_number, user_id, users(full_name)), courses(name)')
       .eq('certificate_number', req.params.code)
       .single();
 
     if (error || !data) return res.status(404).json({ error: 'Certificate not found' });
+
+    // Look for an applicant photo document linked to this student's admission
+    let photoUrl = null;
+    if (data.students?.user_id) {
+      const { data: admissions } = await supabaseAdmin
+        .from('admissions')
+        .select('id')
+        .eq('user_id', data.students.user_id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (admissions && admissions.length > 0) {
+        const { data: docs } = await supabaseAdmin
+          .from('documents')
+          .select('file_url')
+          .eq('entity_type', 'admission')
+          .eq('entity_id', admissions[0].id)
+          .eq('document_type', 'applicant_photo')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (docs && docs.length > 0) {
+          try {
+            const stream = await getObjectStream({ key: docs[0].file_url });
+            const chunks = [];
+            for await (const chunk of stream) chunks.push(chunk);
+            if (chunks.length > 0) {
+              const buffer = Buffer.concat(chunks);
+              photoUrl = toDataUrl(buffer, getContentType(docs[0].file_url));
+            }
+          } catch (e) {
+            console.error('Failed to inline student photo:', e);
+          }
+        }
+      }
+    }
 
     res.json({
       verified: true,
@@ -95,6 +187,7 @@ export const verify = async (req, res) => {
       studentId: data.students?.student_id_number,
       course: data.courses?.name,
       issueDate: data.issue_date,
+      photoUrl,
     });
   } catch (err) {
     console.error('Verify certificate error:', err);
