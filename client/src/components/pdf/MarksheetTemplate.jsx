@@ -1,320 +1,276 @@
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer';
+import marksheetBg from '../../assets/marksheet.jpeg';
+
+// A4 portrait: 595 x 842 pt. Background image is 1088x1600 (portrait).
+// All static labels, headers, and cell borders live inside the
+// background image (marksheet.jpeg). This template only renders the
+// dynamic values on top of the matching cells.
 
 const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
-    backgroundColor: '#ffffff',
-    padding: 30,
+    padding: 0,
     fontFamily: 'Helvetica',
   },
-  borderWrapper: {
-    border: '2pt solid #1e3a8a',
-    padding: 16,
+  pageWrapper: {
     flex: 1,
+    position: 'relative',
   },
-  innerBorder: {
-    border: '0.5pt solid #1e3a8a',
-    flex: 1,
-    padding: 20,
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
   },
-  // ── Header ──
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 16,
-    borderBottom: '1pt solid #cbd5e1',
-    paddingBottom: 12,
-  },
-  institutionName: {
-    fontSize: 22,
-    fontWeight: 'extrabold',
-    color: '#1e3a8a',
-    fontFamily: 'Helvetica-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 2,
-    marginBottom: 4,
-  },
-  title: {
-    fontSize: 16,
-    color: '#1e3a8a',
-    fontFamily: 'Helvetica-Bold',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: 10,
-    color: '#6b7280',
-    fontFamily: 'Helvetica-Oblique',
-  },
-  // ── Student Info ──
-  infoSection: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginBottom: 14,
-    gap: 0,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    width: '50%',
-    marginBottom: 4,
-  },
-  infoLabel: {
+
+  // ── Serial / Registration number values (top row) ──
+  serialValueLeft: {
+    position: 'absolute',
+    top: 22,
+    left: 105,
     fontSize: 9,
-    color: '#6b7280',
-    width: 90,
+    color: '#1e3a8a',
     fontFamily: 'Helvetica-Bold',
+  },
+  serialValueRight: {
+    position: 'absolute',
+    top: 25,
+    right: 25,
+    fontSize: 10,
+    color: '#1e3a8a',
+    fontFamily: 'Helvetica-Bold',
+  },
+
+  // ── Photo frame (top-right) ──
+  photo: {
+    position: 'absolute',
+    top:195,
+    right:37,
+    width: 80,
+    height: 100,
+    objectFit: 'cover',
+  },
+
+  // ── Student info grid values (no labels, just values) ──
+  // Two columns. Left col x ~205, Right col x ~390. y per row ~ 305, 326, 347, 368.
+  infoRowBase: {
+    position: 'absolute',
+    left: 195,
+    right: 50,
+    flexDirection: 'row',
   },
   infoValue: {
+    fontSize: 11,
+    color: '#111827',
+    fontFamily: 'Helvetica',
+  },
+
+    // Left column values
+  studentName: { position: 'absolute', top: 270, left: 137, right: 360, fontSize: 11, color: '#111827' },
+  fatherName: { position: 'absolute', top: 290, left: 137, right: 360, fontSize: 11, color: '#111827' },
+  motherName: { position: 'absolute', top: 311, left: 137, right: 360, fontSize: 11, color: '#111827' },
+  courseName: { position: 'absolute', top: 332, left: 137, right: 80, fontSize: 11, color: '#111827' },
+  // Right column values
+  rollNumber: { position: 'absolute', top: 270, left: 382, right: 175, fontSize: 11, color: '#111827' },
+  dateOfBirth: { position: 'absolute', top: 290, left: 382, right: 175, fontSize: 11, color: '#111827' },
+  sessionName: { position: 'absolute', top: 311, left: 382, right: 175, fontSize: 11, color: '#111827' },
+
+  // ── Marks table (only the data cells, headers come from background) ──
+  // Table starts just below the orange "STATEMENT OF MARKS" bar.
+  // 8 columns: Code, Subject, Marks, Internal, Total, Min, Max, Grade
+  // Column x-positions and widths measured against A4 (595) with
+  // margins of ~50 left/right.
+  tableStartY: 432,
+  rowHeight: 28,
+  tableCell: {
     fontSize: 9,
     color: '#111827',
-  },
-  // ── Table ──
-  table: {
-    marginTop: 6,
-    marginBottom: 12,
-  },
-  tableHeader: {
-    flexDirection: 'row',
-    backgroundColor: '#1e3a8a',
-    padding: 6,
-  },
-  tableHeaderCell: {
-    color: '#ffffff',
-    fontSize: 8,
-    fontFamily: 'Helvetica-Bold',
-    textTransform: 'uppercase',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    padding: 5,
-    borderBottom: '0.5pt solid #e5e7eb',
-  },
-  tableRowAlt: {
-    flexDirection: 'row',
-    padding: 5,
-    borderBottom: '0.5pt solid #e5e7eb',
-    backgroundColor: '#f8fafc',
-  },
-  tableCell: {
-    fontSize: 8,
-    color: '#374151',
-  },
-  colSno: { width: '6%' },
-  colSubject: { width: '22%' },
-  colCode: { width: '12%' },
-  colExam: { width: '20%' },
-  colMaxMarks: { width: '10%', textAlign: 'center' },
-  colObtained: { width: '10%', textAlign: 'center' },
-  colGrade: { width: '10%', textAlign: 'center' },
-  colResult: { width: '10%', textAlign: 'center' },
-  // ── Summary ──
-  summarySection: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 4,
-    marginBottom: 14,
-    paddingRight: 10,
-  },
-  summaryBox: {
-    flexDirection: 'row',
-    gap: 16,
-    borderTop: '1pt solid #1e3a8a',
-    paddingTop: 6,
-  },
-  summaryItem: {
-    alignItems: 'center',
-    marginHorizontal: 10,
-  },
-  summaryLabel: {
-    fontSize: 8,
-    color: '#6b7280',
-    fontFamily: 'Helvetica-Bold',
-  },
-  summaryValue: {
-    fontSize: 12,
-    color: '#1e3a8a',
-    fontFamily: 'Helvetica-Bold',
-    marginTop: 2,
-  },
-  // ── Footer ──
-  footerSection: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
-    paddingTop: 12,
-  },
-  signatureBlock: {
-    alignItems: 'center',
-  },
-  signatureLine: {
-    width: 120,
-    borderBottom: '1pt solid #4b5563',
-    marginBottom: 4,
-  },
-  signatureText: {
-    fontSize: 8,
-    color: '#4b5563',
-  },
-  metaText: {
-    fontSize: 7,
-    color: '#9ca3af',
-    marginTop: 8,
     textAlign: 'center',
   },
-  // ── Pass / Fail Badge ──
+  colCode: { left: 25, width: 60 },
+  colSubject: { left: 112, width: 130, textAlign: 'left' },
+  colMarks: { left: 322, width: 50 },
+  colInternal: { left: 342, width: 55 },
+  colTotal: { left: 397, width: 50 },
+  colMin: { left: 442, width: 50 },
+  colMax: { left: 487, width: 50 },
+  colGrade: { left: 523, width: 50 },
+
+  // Percentage value (sits on the right of the table)
+  percentageValue: {
+    position: 'absolute',
+    top: 610,
+    right: 70,
+    fontSize: 10,
+    color: '#111827',
+    fontFamily: 'Helvetica-Bold',
+  },
+
+  // ── Maximum Marks / Marks Obtained values (labels come from bg) ──
+  maxMarksValue: {
+    position: 'absolute',
+    top: 662,
+    left: 150,
+    fontSize: 10,
+    color: '#111827',
+    fontFamily: 'Helvetica-Bold',
+  },
+  obtainedValue: {
+    position: 'absolute',
+    top: 690,
+    left: 150,
+    fontSize: 10,
+    color: '#111827',
+    fontFamily: 'Helvetica-Bold',
+  },
+
+  // ── Result value (label and box come from background) ──
+  resultValue: {
+    position: 'absolute',
+    top: 715,
+    right: 110,
+    fontSize: 12,
+    fontFamily: 'Helvetica-Bold',
+  },
   passBadge: {
     color: '#16a34a',
-    fontFamily: 'Helvetica-Bold',
   },
   failBadge: {
     color: '#dc2626',
-    fontFamily: 'Helvetica-Bold',
   },
 });
 
+const formatDate = (value) => {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleDateString('en-IN');
+  } catch {
+    return value;
+  }
+};
+
+const computeMinMarks = (maxMarks) => {
+  const m = Number(maxMarks) || 0;
+  return Math.round(m * 0.4);
+};
+
 /**
- * MarksheetTemplate
+ * MarksheetTemplate — values-only overlay for marksheet.jpeg.
  *
- * Props:
- *  - marksheets: Array of marksheet data objects for bulk rendering
- *    Each object: { studentName, studentIdNumber, courseName, results: [...] }
+ * Props (per sheet):
+ *   studentName, fatherName, motherName, dateOfBirth, sessionName,
+ *   studentIdNumber, courseName, photoUrl, results[]
  *
- *  OR for single:
- *  - studentName, studentIdNumber, courseName, results
- *
- *  results[] shape:
- *    { subjectName, subjectCode, examName, maxMarks, marksObtained, grade, isPass }
+ * results[] shape:
+ *   { subjectName, subjectCode, marksObtained, internal, totalMarks,
+ *     minMarks, maxMarks, grade }
  */
 const MarksheetTemplate = ({
   marksheets = [],
   studentName,
+  fatherName,
+  motherName,
+  dateOfBirth,
+  sessionName,
   studentIdNumber,
   courseName,
+  photoUrl,
   results = [],
 }) => {
   const sheetsToRender = marksheets.length > 0
     ? marksheets
-    : [{ studentName, studentIdNumber, courseName, results }];
+    : [{
+        studentName, fatherName, motherName, dateOfBirth, sessionName,
+        studentIdNumber, courseName, photoUrl, results,
+      }];
 
   return (
     <Document>
       {sheetsToRender.map((sheet, sheetIndex) => {
-        const totalMax = sheet.results.reduce((sum, r) => sum + (Number(r.maxMarks) || 0), 0);
-        const totalObtained = sheet.results.reduce((sum, r) => sum + (Number(r.marksObtained) || 0), 0);
+        const rows = sheet.results || [];
+        const totalMax = rows.reduce((sum, r) => sum + (Number(r.maxMarks) || 0), 0);
+        const totalObtained = rows.reduce((sum, r) => {
+          const m = Number(r.marksObtained) || 0;
+          const i = Number(r.internal) || 0;
+          return sum + m + i;
+        }, 0);
         const percentage = totalMax > 0 ? ((totalObtained / totalMax) * 100).toFixed(2) : '0.00';
-        const overallPass = sheet.results.length > 0 && sheet.results.every(r => r.isPass);
-        const generatedDate = new Date().toLocaleDateString('en-IN');
+        const overallPass = rows.length > 0 && rows.every(r => r.isPass);
 
         return (
-          <Page key={sheetIndex} size="A4" style={styles.page}>
-            <View style={styles.borderWrapper}>
-              <View style={styles.innerBorder}>
-                {/* Header */}
-                <View style={styles.headerSection}>
-                  <Text style={styles.institutionName}>EduCare Academy</Text>
-                  <Text style={styles.title}>Statement of Marks</Text>
-                  <Text style={styles.subtitle}>Official Academic Record</Text>
-                </View>
+          <Page key={sheetIndex} size="A4" orientation="portrait" style={styles.page}>
+            <View style={styles.pageWrapper}>
+              <Image src={marksheetBg} style={styles.backgroundImage} />
 
-                {/* Student Info */}
-                <View style={styles.infoSection}>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Student Name:</Text>
-                    <Text style={styles.infoValue}>{sheet.studentName || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Student ID:</Text>
-                    <Text style={styles.infoValue}>{sheet.studentIdNumber || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Course:</Text>
-                    <Text style={styles.infoValue}>{sheet.courseName || 'N/A'}</Text>
-                  </View>
-                  <View style={styles.infoRow}>
-                    <Text style={styles.infoLabel}>Date of Issue:</Text>
-                    <Text style={styles.infoValue}>{generatedDate}</Text>
-                  </View>
-                </View>
+              {/* Serial / Registration values */}
+              <Text style={styles.serialValueLeft}>{sheetIndex + 1}</Text>
+              <Text style={styles.serialValueRight}>{sheet.studentIdNumber || ''}</Text>
 
-                {/* Results Table */}
-                <View style={styles.table}>
-                  {/* Table Header */}
-                  <View style={styles.tableHeader}>
-                    <Text style={[styles.tableHeaderCell, styles.colSno]}>S.No</Text>
-                    <Text style={[styles.tableHeaderCell, styles.colSubject]}>Subject</Text>
-                    <Text style={[styles.tableHeaderCell, styles.colCode]}>Code</Text>
-                    <Text style={[styles.tableHeaderCell, styles.colExam]}>Exam</Text>
-                    <Text style={[styles.tableHeaderCell, styles.colMaxMarks]}>Max</Text>
-                    <Text style={[styles.tableHeaderCell, styles.colObtained]}>Obtained</Text>
-                    <Text style={[styles.tableHeaderCell, styles.colGrade]}>Grade</Text>
-                    <Text style={[styles.tableHeaderCell, styles.colResult]}>Result</Text>
-                  </View>
+              {/* Photo */}
+              {sheet.photoUrl && (
+                <Image src={sheet.photoUrl} style={styles.photo} />
+              )}
 
-                  {/* Table Rows */}
-                  {sheet.results.map((result, rIndex) => (
-                    <View key={rIndex} style={rIndex % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
-                      <Text style={[styles.tableCell, styles.colSno]}>{rIndex + 1}</Text>
-                      <Text style={[styles.tableCell, styles.colSubject]}>{result.subjectName}</Text>
-                      <Text style={[styles.tableCell, styles.colCode]}>{result.subjectCode}</Text>
-                      <Text style={[styles.tableCell, styles.colExam]}>{result.examName}</Text>
-                      <Text style={[styles.tableCell, styles.colMaxMarks]}>{result.maxMarks}</Text>
-                      <Text style={[styles.tableCell, styles.colObtained]}>{result.marksObtained}</Text>
-                      <Text style={[styles.tableCell, styles.colGrade]}>{result.grade || '-'}</Text>
-                      <Text style={[styles.tableCell, styles.colResult, result.isPass ? styles.passBadge : styles.failBadge]}>
-                        {result.isPass ? 'PASS' : 'FAIL'}
-                      </Text>
-                    </View>
-                  ))}
+              {/* Info values */}
+              <Text style={styles.studentName}>{sheet.studentName || ''}</Text>
+              <Text style={styles.fatherName}>{sheet.fatherName || ''}</Text>
+              <Text style={styles.motherName}>{sheet.motherName || ''}</Text>
+              <Text style={styles.courseName}>{sheet.courseName || ''}</Text>
+              <Text style={styles.rollNumber}>{sheet.studentIdNumber || ''}</Text>
+              <Text style={styles.dateOfBirth}>{formatDate(sheet.dateOfBirth)}</Text>
+              <Text style={styles.sessionName}>{sheet.sessionName || ''}</Text>
 
-                  {sheet.results.length === 0 && (
-                    <View style={styles.tableRow}>
-                      <Text style={[styles.tableCell, { width: '100%', textAlign: 'center', padding: 10, color: '#9ca3af' }]}>
-                        No results found for the selected exams.
-                      </Text>
-                    </View>
-                  )}
-                </View>
+              {/* Marks rows */}
+              {rows.map((result, rIndex) => {
+                const marks = Number(result.marksObtained) || 0;
+                const internal = Number(result.internal) || 0;
+                const total = Number(result.totalMarks) || (marks + internal);
+                const maxMarks = Number(result.maxMarks) || 0;
+                const minMarks = result.minMarks != null ? Number(result.minMarks) : computeMinMarks(maxMarks);
+                const top = styles.tableStartY + rIndex * styles.rowHeight;
+                const rowStyle = (extra) => ({ ...extra, position: 'absolute', top });
+                return (
+                  <View key={rIndex}>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colCode })}>
+                      {result.subjectCode || ''}
+                    </Text>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colSubject })}>
+                      {result.subjectName || ''}
+                    </Text>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colMarks })}>
+                      {marks}
+                    </Text>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colInternal })}>
+                      {internal}
+                    </Text>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colTotal })}>
+                      {total}
+                    </Text>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colMin })}>
+                      {minMarks}
+                    </Text>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colMax })}>
+                      {maxMarks}
+                    </Text>
+                    <Text style={rowStyle({ ...styles.tableCell, ...styles.colGrade })}>
+                      {result.grade || ''}
+                    </Text>
+                  </View>
+                );
+              })}
 
-                {/* Summary */}
-                <View style={styles.summarySection}>
-                  <View style={styles.summaryBox}>
-                    <View style={styles.summaryItem}>
-                      <Text style={styles.summaryLabel}>Total Marks</Text>
-                      <Text style={styles.summaryValue}>{totalObtained} / {totalMax}</Text>
-                    </View>
-                    <View style={styles.summaryItem}>
-                      <Text style={styles.summaryLabel}>Percentage</Text>
-                      <Text style={styles.summaryValue}>{percentage}%</Text>
-                    </View>
-                    <View style={styles.summaryItem}>
-                      <Text style={styles.summaryLabel}>Overall</Text>
-                      <Text style={[styles.summaryValue, overallPass ? styles.passBadge : styles.failBadge]}>
-                        {sheet.results.length > 0 ? (overallPass ? 'PASS' : 'FAIL') : '-'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+              {/* Percentage */}
+              <Text style={styles.percentageValue}>{percentage}%</Text>
 
-                {/* Footer */}
-                <View style={styles.footerSection}>
-                  <View style={styles.signatureBlock}>
-                    <View style={styles.signatureLine}></View>
-                    <Text style={styles.signatureText}>Date: {generatedDate}</Text>
-                  </View>
-                  <View style={styles.signatureBlock}>
-                    <View style={styles.signatureLine}></View>
-                    <Text style={styles.signatureText}>Controller of Examinations</Text>
-                  </View>
-                  <View style={styles.signatureBlock}>
-                    <View style={styles.signatureLine}></View>
-                    <Text style={styles.signatureText}>Authorized Signature</Text>
-                  </View>
-                </View>
+              {/* Max / Obtained values */}
+              <Text style={styles.maxMarksValue}>{totalMax}</Text>
+              <Text style={styles.obtainedValue}>{totalObtained}</Text>
 
-                <Text style={styles.metaText}>
-                  This is a computer-generated document. Verify at portal.educare.com/verify
-                </Text>
-              </View>
+              {/* Result */}
+              <Text style={[styles.resultValue, overallPass ? styles.passBadge : styles.failBadge]}>
+                {rows.length > 0 ? (overallPass ? 'PASS' : 'FAIL') : ''}
+              </Text>
             </View>
           </Page>
         );

@@ -91,15 +91,46 @@ const AdminMarksheets = () => {
   const fetchResultsForStudent = async (studentId) => {
     const { data: allResults } = await api.get(`/results/student/${studentId}`);
     // Filter to only selected exams
-    return (allResults || []).filter(r => selectedExams.includes(r.exam_id)).map(r => ({
-      subjectName: r.subjects?.name || 'N/A',
-      subjectCode: r.subjects?.code || '-',
-      examName: r.exams?.name || 'N/A',
-      maxMarks: r.subjects?.max_marks || 0,
-      marksObtained: r.marks_obtained,
-      grade: r.grade,
-      isPass: r.is_pass,
-    }));
+    return (allResults || []).filter(r => selectedExams.includes(r.exam_id)).map(r => {
+      const marksObtained = Number(r.marks_obtained) || 0;
+      const internal = Number(r.internal_marks) || 0;
+      const maxMarks = Number(r.subjects?.max_marks) || 0;
+      const minMarks = maxMarks > 0 ? Math.round(maxMarks * 0.4) : 0;
+      return {
+        subjectName: r.subjects?.name || 'N/A',
+        subjectCode: r.subjects?.code || '-',
+        examName: r.exams?.name || 'N/A',
+        maxMarks,
+        minMarks,
+        marksObtained,
+        internal,
+        totalMarks: marksObtained + internal,
+        grade: r.grade,
+        isPass: r.is_pass,
+      };
+    });
+  };
+
+  // ── Fetch applicant photo data URL for a student ──
+  const fetchPhotoForStudent = async (studentId) => {
+    try {
+      const { data } = await api.get(`/students/${studentId}/photo`);
+      return data?.photoUrl || null;
+    } catch (err) {
+      console.error('Failed to fetch student photo:', err);
+      return null;
+    }
+  };
+
+  // ── Fetch full student record (mother_name, DOB, session, etc.) ──
+  const fetchStudentDetails = async (studentId) => {
+    try {
+      const { data } = await api.get(`/students/${studentId}`);
+      return data || null;
+    } catch (err) {
+      console.error('Failed to fetch student details:', err);
+      return null;
+    }
   };
 
   // ── Get Marksheet (single student) ──
@@ -112,11 +143,21 @@ const AdminMarksheets = () => {
     setIsGenerating(true);
     setIsModalOpen(true);
     try {
-      const results = await fetchResultsForStudent(student.id);
+      const [results, photoUrl, details] = await Promise.all([
+        fetchResultsForStudent(student.id),
+        fetchPhotoForStudent(student.id),
+        fetchStudentDetails(student.id),
+      ]);
+      const src = details || student;
       setMarksheetData({
-        studentName: student.users?.full_name || 'Unknown',
-        studentIdNumber: student.student_id_number || 'N/A',
+        studentName: src.users?.full_name || student.users?.full_name || 'Unknown',
+        fatherName: src.father_name || student.father_name,
+        motherName: src.mother_name,
+        dateOfBirth: src.date_of_birth,
+        sessionName: src.sessions?.session_type,
+        studentIdNumber: src.student_id_number || student.student_id_number || 'N/A',
         courseName: courseDetails?.name || 'N/A',
+        photoUrl,
         results,
       });
       toast.success(`Marksheet generated for ${student.users?.full_name || 'student'}`);
@@ -191,11 +232,21 @@ const AdminMarksheets = () => {
           if (!sid) continue;
 
           const studentInfo = students?.find(s => s.id === sid);
-          const results = await fetchResultsForStudent(sid);
+          const [results, photoUrl, details] = await Promise.all([
+            fetchResultsForStudent(sid),
+            fetchPhotoForStudent(sid),
+            fetchStudentDetails(sid),
+          ]);
+          const src = details || studentInfo;
           sheets.push({
-            studentName: studentInfo?.users?.full_name || 'Unknown',
-            studentIdNumber: studentInfo?.student_id_number || 'N/A',
+            studentName: src?.users?.full_name || studentInfo?.users?.full_name || 'Unknown',
+            fatherName: src?.father_name || studentInfo?.father_name,
+            motherName: src?.mother_name,
+            dateOfBirth: src?.date_of_birth,
+            sessionName: src?.sessions?.session_type,
+            studentIdNumber: src?.student_id_number || studentInfo?.student_id_number || 'N/A',
             courseName: courseDetails?.name || 'N/A',
+            photoUrl,
             results,
           });
         }

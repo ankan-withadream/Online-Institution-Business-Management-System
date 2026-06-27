@@ -1,5 +1,52 @@
 import { supabaseAdmin } from '../config/supabase.js';
-import { getPreviewUrl } from '../utils/r2.js';
+import { getObjectStream } from '../utils/r2.js';
+
+const getPhotoContentType = (key) => {
+  const lower = (key || '').toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  return 'image/jpeg';
+};
+
+const toDataUrl = (buffer, contentType) => {
+  const base64 = Buffer.from(buffer).toString('base64');
+  return `data:${contentType};base64,${base64}`;
+};
+
+export const resolveStudentPhotoDataUrl = async (userId) => {
+  if (!userId) return null;
+  try {
+    const { data: admissions } = await supabaseAdmin
+      .from('admissions')
+      .select('id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!admissions || admissions.length === 0) return null;
+
+    const { data: docs } = await supabaseAdmin
+      .from('documents')
+      .select('file_url')
+      .eq('entity_type', 'admission')
+      .eq('entity_id', admissions[0].id)
+      .eq('document_type', 'applicant_photo')
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (!docs || docs.length === 0) return null;
+
+    const stream = await getObjectStream({ key: docs[0].file_url });
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    if (chunks.length === 0) return null;
+    const buffer = Buffer.concat(chunks);
+    return toDataUrl(buffer, getPhotoContentType(docs[0].file_url));
+  } catch (err) {
+    console.error('Resolve student photo error:', err);
+    return null;
+  }
+};
 
 export const getMe = async (req, res) => {
   try {
@@ -70,29 +117,7 @@ export const verify = async (req, res) => {
     if (error && error.code !== 'PGRST116') throw error;
     if (!data) return res.status(404).json({ error: 'Student not found' });
 
-    // Look for a photo document linked to this student's admission
-    let photoUrl = null;
-    const { data: admissions } = await supabaseAdmin
-      .from('admissions')
-      .select('id')
-      .eq('user_id', data.user_id)
-      .order('created_at', { ascending: false })
-      .limit(1);
-
-    if (admissions && admissions.length > 0) {
-      const { data: docs } = await supabaseAdmin
-        .from('documents')
-        .select('file_url')
-        .eq('entity_type', 'admission')
-        .eq('entity_id', admissions[0].id)
-        .eq('document_type', 'applicant_photo')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (docs && docs.length > 0) {
-        photoUrl = await getPreviewUrl({ key: docs[0].file_url });
-      }
-    }
+    const photoUrl = await resolveStudentPhotoDataUrl(data.user_id);
 
     res.json({
       verified: true,
@@ -108,6 +133,24 @@ export const verify = async (req, res) => {
   } catch (err) {
     console.error('Verify student error:', err);
     res.status(500).json({ error: 'Verification failed' });
+  }
+};
+
+export const getPhoto = async (req, res) => {
+  try {
+    const { data: student, error } = await supabaseAdmin
+      .from('students')
+      .select('user_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (error || !student) return res.status(404).json({ error: 'Student not found' });
+
+    const photoUrl = await resolveStudentPhotoDataUrl(student.user_id);
+    res.json({ photoUrl });
+  } catch (err) {
+    console.error('Get student photo error:', err);
+    res.status(500).json({ error: 'Failed to fetch photo' });
   }
 };
 
