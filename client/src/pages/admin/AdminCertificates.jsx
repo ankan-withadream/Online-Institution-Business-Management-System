@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react';
-import { Award, Download, FileText, CheckCircle, X, Upload } from 'lucide-react';
+import { Award, Download, FileText, CheckCircle, X, Upload, FileBadge } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import CertificateTemplate from '../../components/pdf/CertificateTemplate';
+import MigrationCertificateTemplate from '../../components/pdf/MigrationCertificateTemplate';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 
@@ -14,6 +15,13 @@ const AdminCertificates = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [generatedCert, setGeneratedCert] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  // Tracks which template the modal is currently previewing.
+  // 'certificate' → standard certificate; 'migration' → migration cert.
+  const [templateMode, setTemplateMode] = useState('certificate');
+  // Tracks which bulk operation is in flight. 'certificate' generates
+  // regular certificates; 'migration' generates migration certificates
+  // for students who already have a regular certificate recorded.
+  const [bulkMode, setBulkMode] = useState('certificate');
   
   const fileInputRef = useRef(null);
 
@@ -29,6 +37,7 @@ const AdminCertificates = () => {
 
   const handleGenerateClick = async (student) => {
     setSelectedStudent(student);
+    setTemplateMode('certificate');
     setIsGenerating(true);
     setIsModalOpen(true);
 
@@ -60,6 +69,44 @@ const AdminCertificates = () => {
     setIsModalOpen(false);
     setSelectedStudent(null);
     setGeneratedCert(null);
+  };
+
+  // ── Generate Migration certificate (client-side, no DB write) ──
+  // Looks up the student's existing certificate record for the
+  // selected course. If none is found, asks the user to generate the
+  // regular certificate first.
+  const handleGenerateMigration = async (student) => {
+    setIsGenerating(true);
+    setSelectedStudent(student);
+    try {
+      const [{ data: existing }, photoRes] = await Promise.all([
+        api.get(`/certificates/student/${student.id}`),
+        api.get(`/students/${student.id}/photo`).catch(() => ({ data: { photoUrl: null } })),
+      ]);
+      const match = (existing || []).find(c => c.course_id === selectedCourse);
+
+      if (!match) {
+        toast.error('Please generate the certificate first before creating a migration certificate.');
+        setSelectedStudent(null);
+        return;
+      }
+
+      // Build a synthetic generatedCert object shaped like the create
+      // response so the existing templateProps pipeline can render
+      // either template without changes.
+      setGeneratedCert({
+        ...match,
+        photoUrl: photoRes?.data?.photoUrl ?? null,
+        issuerName: courseDetails?.name || 'Vivekananda Education & Health Training Institute',
+      });
+      setTemplateMode('migration');
+      setIsModalOpen(true);
+      toast.success('Migration certificate ready for preview');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to fetch certificate');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleDownloadTemplate = () => {
@@ -100,6 +147,8 @@ const AdminCertificates = () => {
     reader.onload = async (event) => {
       try {
         setIsGenerating(true);
+        setBulkMode('certificate');
+        setTemplateMode('certificate');
         setIsBulkModalOpen(false);
         setIsModalOpen(true);
         setSelectedStudent(null);
@@ -184,6 +233,112 @@ const AdminCertificates = () => {
     reader.readAsText(file);
   };
 
+  // ── Bulk Migration upload (client-side render, no DB write) ──
+  // Mirrors handleBulkUpload but skips students without an existing
+  // certificate for the selected course, since migration certificates
+  // reuse the recorded certificate as their data source.
+  const handleBulkMigrationUpload = (e) => {
+    e.preventDefault();
+    if (!fileInputRef.current?.files[0]) {
+      toast.error('Please upload a CSV file');
+      return;
+    }
+
+    const file = fileInputRef.current.files[0];
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      try {
+        setIsGenerating(true);
+        setBulkMode('migration');
+        setTemplateMode('migration');
+        setIsBulkModalOpen(false);
+        setIsModalOpen(true);
+        setSelectedStudent(null);
+        setGeneratedCert([]);
+
+        const text = event.target.result;
+        const lines = text.split('\n').filter(l => l.trim() !== '');
+        if (lines.length < 2) throw new Error('CSV is empty or has no data rows');
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const studentIdIndex = headers.findIndex(h => h === 'student id');
+        if (studentIdIndex === -1) throw new Error('CSV must contain "Student ID" column');
+
+        const migrationCerts = [];
+        const skipped = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const rowText = lines[i];
+          const values = [];
+          let inQuotes = false;
+          let currentValue = '';
+          for (let j = 0; j < rowText.length; j++) {
+            const char = rowText[j];
+            if (char === '"') inQuotes = !inQuotes;
+            else if (char === ',' && !inQuotes) {
+              values.push(currentValue.trim());
+              currentValue = '';
+            } else {
+              currentValue += char;
+            }
+          }
+          values.push(currentValue.trim());
+
+          const studentId = values[studentIdIndex];
+          if (!studentId) continue;
+
+          const studentInfo = students?.find(s => s.id === studentId);
+
+          const [{ data: existing }, photoRes] = await Promise.all([
+            api.get(`/certificates/student/${studentId}`),
+            api.get(`/students/${studentId}/photo`).catch(() => ({ data: { photoUrl: null } })),
+          ]);
+          const match = (existing || []).find(c => c.course_id === selectedCourse);
+
+          if (!match) {
+            skipped.push(studentInfo?.users?.full_name || studentId);
+            continue;
+          }
+
+          migrationCerts.push({
+            studentName: studentInfo?.users?.full_name || 'Unknown Student',
+            courseName: courseDetails?.name || 'Unknown Course',
+            issueDate: match.issue_date,
+            certificateCode: match.certificate_number,
+            fatherName: studentInfo?.father_name,
+            studentIdNumber: studentInfo?.student_id_number,
+            issuerName: courseDetails?.name || 'Vivekananda Education & Health Training Institute',
+            photoUrl: photoRes?.data?.photoUrl ?? null,
+          });
+        }
+
+        if (migrationCerts.length === 0) {
+          toast.error('No students in the upload have an existing certificate. Please generate regular certificates first.');
+          setIsModalOpen(false);
+          return;
+        }
+
+        if (skipped.length > 0) {
+          toast(`Skipped ${skipped.length} student(s) without a certificate. Generate them first.`, { icon: '⚠️' });
+        }
+
+        setGeneratedCert(migrationCerts);
+        toast.success(`Generated ${migrationCerts.length} migration certificate(s)`);
+      } catch (err) {
+        toast.error(err.message || 'Error processing CSV');
+        setIsModalOpen(false);
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+    reader.onerror = () => {
+      toast.error('Failed to read file');
+      setIsGenerating(false);
+    };
+    reader.readAsText(file);
+  };
+
   const courseDetails = courses?.find(c => c.id === selectedCourse);
   
   const isBulk = Array.isArray(generatedCert);
@@ -199,9 +354,14 @@ const AdminCertificates = () => {
         photoUrl: generatedCert?.photoUrl,
       };
 
-  const fileName = isBulk 
+  const fileName = isBulk
     ? `Bulk_Certificates_${courseDetails?.name?.replace(/\s+/g, '_') || 'course'}.pdf`
-    : `Certificate_${selectedStudent?.student_id_number || '000'}.pdf`;
+    : templateMode === 'migration'
+      ? `Migration_${selectedStudent?.student_id_number || '000'}.pdf`
+      : `Certificate_${selectedStudent?.student_id_number || '000'}.pdf`;
+
+  const TemplateComponent = templateMode === 'migration' ? MigrationCertificateTemplate : CertificateTemplate;
+  const templateDocument = <TemplateComponent {...templateProps} />;
 
   return (
     <div className="admin-certificates">
@@ -288,13 +448,20 @@ const AdminCertificates = () => {
                     <td>{student.users?.email || 'N/A'}</td>
                     <td>{new Date(student.enrollment_date).toLocaleDateString()}</td>
                     <td>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                         <button
                           onClick={() => handleGenerateClick(student)}
                           className="btn btn-primary"
                           style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}
                         >
                           <Award size={16} /> Generate Certificate
+                        </button>
+                        <button
+                          onClick={() => handleGenerateMigration(student)}
+                          className="btn btn-secondary"
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}
+                        >
+                          <FileBadge size={16} /> Generate Migration
                         </button>
                       </div>
                     </td>
@@ -314,7 +481,8 @@ const AdminCertificates = () => {
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb' }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Award className="text-primary-600" /> Certificate Generation
+                  {templateMode === 'migration' ? <FileBadge className="text-primary-600" /> : <Award className="text-primary-600" />}
+                  {templateMode === 'migration' ? 'Migration Certificate' : 'Certificate Generation'}
                 </h2>
                 <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.875rem' }}>
                   {isBulk ? `Bulk Certificates - ${courseDetails?.name}` : `${selectedStudent?.users?.full_name} - ${courseDetails?.name}`}
@@ -323,7 +491,7 @@ const AdminCertificates = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 {!isGenerating && generatedCert && (!isBulk || generatedCert.length > 0) && (
                   <PDFDownloadLink
-                    document={<CertificateTemplate {...templateProps} />}
+                    document={templateDocument}
                     fileName={fileName}
                     className="btn btn-primary"
                     style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
@@ -352,7 +520,7 @@ const AdminCertificates = () => {
                 </div>
               ) : generatedCert ? (
                 <PDFViewer width="100%" height="100%" style={{ border: 'none', borderRadius: '0.5rem', backgroundColor: '#fff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                  <CertificateTemplate {...templateProps} />
+                  {templateDocument}
                 </PDFViewer>
               ) : null}
             </div>
@@ -407,10 +575,18 @@ const AdminCertificates = () => {
               </button>
               <button
                 type="button"
+                onClick={handleBulkMigrationUpload}
+                className="btn btn-secondary"
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              >
+                <FileBadge size={16} /> Generate Migration Certificates
+              </button>
+              <button
+                type="button"
                 onClick={handleBulkUpload}
                 className="btn btn-primary"
               >
-                Upload and Generate
+                Generate Certificates
               </button>
             </div>
           </div>
