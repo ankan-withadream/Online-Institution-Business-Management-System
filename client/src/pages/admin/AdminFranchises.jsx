@@ -1,6 +1,8 @@
 import { useFetch } from '../../hooks/useFetch';
 import { useState, useEffect } from 'react';
-import { Eye, X, FileText, Download, Image as ImageIcon } from 'lucide-react';
+import { Eye, X, FileText, Download, Image as ImageIcon, FileBadge } from 'lucide-react';
+import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
+import FranchiseAuthorizationCertificateTemplate from '../../components/pdf/FranchiseAuthorizationCertificateTemplate';
 import api from '../../services/api';
 
 const AdminFranchises = () => {
@@ -10,6 +12,8 @@ const AdminFranchises = () => {
   const [documents, setDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [previewDocId, setPreviewDocId] = useState(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authFranchise, setAuthFranchise] = useState(null);
 
   useEffect(() => {
     if (viewingFranchise) {
@@ -41,6 +45,32 @@ const AdminFranchises = () => {
     setProcessing(null);
   };
 
+  const handleGenerateAuthCert = (franchise) => {
+    setAuthFranchise(franchise);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleCloseAuthModal = () => {
+    setIsAuthModalOpen(false);
+    setAuthFranchise(null);
+  };
+
+  const buildAuthCertProps = () => {
+    if (!authFranchise) return {};
+    const f = authFranchise;
+    const addressParts = [f.address, f.city, f.state, f.pincode].filter(Boolean);
+
+    return {
+      organizationName: f.organization_name || '',
+      contactPerson: f.contact_person || '',
+      address: addressParts.join(', '),
+      phone: f.phone || '',
+      email: f.email || '',
+      certificateNumber: `FRC-${f.id?.slice(0, 8).toUpperCase() || '00000000'}`,
+      issueDate: f.reviewed_at || f.created_at || new Date().toISOString().split('T')[0],
+    };
+  };
+
   return (
     <div>
       <div className="page-header"><h1>Franchises</h1></div>
@@ -65,6 +95,16 @@ const AdminFranchises = () => {
                       >
                         <Eye size={18} />
                       </button>
+                      {f.status === 'approved' && (
+                        <button
+                          onClick={() => handleGenerateAuthCert(f)}
+                          className="btn-icon"
+                          title="Generate Authorization Certificate"
+                          style={{ background: 'none', border: 'none', color: '#8b5cf6', cursor: 'pointer', padding: '0.25rem' }}
+                        >
+                          <FileBadge size={18} />
+                        </button>
+                      )}
                       {f.status === 'pending' && (
                         <>
                           <button className="btn btn-primary btn-sm" onClick={() => handleStatus(f.id, 'approved')} disabled={processing === f.id}>Approve</button>
@@ -227,6 +267,53 @@ const AdminFranchises = () => {
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
               <button onClick={() => setViewingFranchise(null)} className="btn btn-secondary">Close</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Franchise Authorization Certificate Modal */}
+      {isAuthModalOpen && authFranchise && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '90%', maxWidth: '1100px', height: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <FileBadge style={{ color: '#1e3a8a' }} />
+                  Authorization Certificate
+                </h2>
+                <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.875rem' }}>
+                  {authFranchise.organization_name} — {authFranchise.contact_person}
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <PDFDownloadLink
+                  document={<FranchiseAuthorizationCertificateTemplate {...buildAuthCertProps()} />}
+                  fileName={`Authorization_Certificate_${authFranchise.organization_name?.replace(/\s+/g, '_') || 'franchise'}.pdf`}
+                  className="btn btn-primary"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                >
+                  {({ loading }) => loading ? 'Preparing...' : (
+                    <>
+                      <Download size={18} /> Download PDF
+                    </>
+                  )}
+                </PDFDownloadLink>
+                <button
+                  onClick={handleCloseAuthModal}
+                  style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, backgroundColor: '#e5e7eb', padding: '1rem' }}>
+              <PDFViewer width="100%" height="100%" style={{ border: 'none', borderRadius: '0.5rem', backgroundColor: '#fff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <FranchiseAuthorizationCertificateTemplate {...buildAuthCertProps()} />
+              </PDFViewer>
+            </div>
+
           </div>
         </div>
       )}
