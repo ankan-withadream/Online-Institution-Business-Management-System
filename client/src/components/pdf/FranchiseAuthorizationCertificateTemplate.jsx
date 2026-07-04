@@ -25,8 +25,8 @@ const styles = StyleSheet.create({
   },
   orgName: {
     position: 'absolute',
-    top: 190,
-    left: 230,
+    top: 260,
+    left: 180,
     right: 80,
     fontSize: 28,
     color: '#1e3a8a',
@@ -35,8 +35,8 @@ const styles = StyleSheet.create({
   },
   contactPerson: {
     position: 'absolute',
-    top: 260,
-    left: 230,
+    top: 358,
+    left: 180,
     right: 80,
     fontSize: 18,
     color: '#374151',
@@ -44,9 +44,9 @@ const styles = StyleSheet.create({
   },
   address: {
     position: 'absolute',
-    top: 300,
-    left: 120,
-    right: 120,
+    top: 310,
+    left: 190,
+    right: 100,
     fontSize: 14,
     color: '#374151',
     textAlign: 'center',
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
   phone: {
     position: 'absolute',
     top: 330,
-    left: 230,
+    left: 180,
     right: 80,
     fontSize: 14,
     color: '#374151',
@@ -62,8 +62,8 @@ const styles = StyleSheet.create({
   },
   issueDate: {
     position: 'absolute',
-    bottom: 120,
-    left: 300,
+    bottom: 55,
+    left: 430,
     right: 300,
     fontSize: 14,
     color: '#374151',
@@ -119,9 +119,6 @@ const FranchiseAuthorizationCertificateTemplate = ({
             <Text style={styles.orgName}>{cert.organizationName || ''}</Text>
             <Text style={styles.contactPerson}>{cert.contactPerson || ''}</Text>
             <Text style={styles.address}>{cert.address || ''}</Text>
-            {cert.phone && (
-              <Text style={styles.phone}>{cert.phone}</Text>
-            )}
             <Text style={styles.issueDate}>
               {formatDate(cert.issueDate) || formatDate(new Date().toISOString().split('T')[0])}
             </Text>

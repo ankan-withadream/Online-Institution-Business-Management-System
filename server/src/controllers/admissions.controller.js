@@ -155,7 +155,7 @@ export const updateStatus = async (req, res) => {
         await supabaseAdmin.from('admissions').update({ user_id: authData.user.id }).eq('id', req.params.id);
 
         // Send welcome SMS (fire-and-forget)
-        sendWelcomeSMS(admission.full_name, admission.phone, admission.courses?.name || admission.course_id)
+        sendWelcomeSMS(admission.full_name, studentIdNumber, admission.phone, admission.courses?.name || admission.course_id)
           .then((result) => {
             if (result?.error) console.error('Welcome SMS failed:', result.error);
             else console.log('Welcome SMS sent:', result);

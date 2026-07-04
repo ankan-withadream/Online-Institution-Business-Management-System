@@ -38,8 +38,14 @@ export const sendSMS = async ({ numbers, message, route = 'q' }) => {
   }
 };
 
-export const sendWelcomeSMS = async (studentName, phone, courseName) => {
-  const message = `Dear ${studentName}, your admission to ${courseName} has been approved. Welcome to Vivekananda Education & Health Training Institute. Your student portal credentials will be shared via email. - VEHTI`;
+export const sendWelcomeSMS = async (studentName, studentId, phone, courseName) => {
+  // const message = `Dear ${studentName}, your admission to ${courseName} has been approved. Welcome to Vivekananda Education & Health Training Institute. Your student portal credentials will be shared via email. - VEHTI`;
+  const message = `Welcome to Vivekananda Education and Health Training Institute.
+Dear ${studentName},
+Your admission for ${courseName} has been successfully completed.
+Student ID: ${studentId}
+For updates and notifications, please stay connected with the institute.
+Thank You.`
 
   return sendSMS({ numbers: phone, message });
 };
