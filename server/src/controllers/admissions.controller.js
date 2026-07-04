@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { generateStudentId } from '../utils/idGenerator.js';
+import { sendWelcomeSMS } from '../utils/sms.js';
 
 export const create = async (req, res) => {
   try {
@@ -74,7 +75,7 @@ export const updateStatus = async (req, res) => {
     // Get the admission
     const { data: admission, error: fetchError } = await supabaseAdmin
       .from('admissions')
-      .select('*')
+      .select('*, courses(name)')
       .eq('id', req.params.id)
       .single();
 
@@ -152,6 +153,14 @@ export const updateStatus = async (req, res) => {
 
         // Update the admission with the generated user_id
         await supabaseAdmin.from('admissions').update({ user_id: authData.user.id }).eq('id', req.params.id);
+
+        // Send welcome SMS (fire-and-forget)
+        sendWelcomeSMS(admission.full_name, admission.phone, admission.courses?.name || admission.course_id)
+          .then((result) => {
+            if (result?.error) console.error('Welcome SMS failed:', result.error);
+            else console.log('Welcome SMS sent:', result);
+          })
+          .catch((err) => console.error('Welcome SMS error:', err));
       }
     }
 

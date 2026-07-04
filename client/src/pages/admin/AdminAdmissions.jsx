@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { Eye, X, FileText, Download, Image as ImageIcon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '../../services/api';
 
 const AdminAdmissions = () => {
@@ -53,9 +54,14 @@ const AdminAdmissions = () => {
       await api.patch(`/admissions/${id}/status`, { status, sessionId });
       setApprovingAdmission(null);
       setSelectedSession('');
+      if (status === 'approved') {
+        toast.success('Admission approved — student account created and welcome SMS sent');
+      } else if (status === 'rejected') {
+        toast.success('Admission rejected');
+      }
       refetch();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed');
+      toast.error(err.response?.data?.error || `Failed to ${status} admission`);
     }
     setProcessing(null);
   };

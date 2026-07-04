@@ -17,6 +17,7 @@ const env = {
   R2_SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY,
   R2_BUCKET: process.env.R2_BUCKET,
   R2_REGION: process.env.R2_REGION || 'auto',
+  FAST2SMS_API_KEY: process.env.FAST2SMS_API_KEY,
 };
 
 // Validate required vars

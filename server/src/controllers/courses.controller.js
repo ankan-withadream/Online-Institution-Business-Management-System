@@ -14,7 +14,7 @@ export const getAll = async (_req, res) => {
       query = query.eq('is_active', true);
     }
     const { data, error } = await query;
-    console.log('Fetched courses:', data);
+    // console.log('Fetched courses:', data);
 
     if (error) throw error;
     res.json(data);
