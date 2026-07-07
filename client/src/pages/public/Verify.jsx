@@ -89,7 +89,7 @@ const Verify = () => {
 
   return (
     <div className="section">
-      <div className="container" style={{ maxWidth: 900, textAlign: 'center' }}>
+      <div className="container" style={{ textAlign: 'center' }}>
         <h1 className="section-title">Verify Certificate or Student</h1>
         <p className="section-subtitle">Enter the verification code or student ID to validate authenticity</p>
 
@@ -141,36 +141,41 @@ const Verify = () => {
 
           {result?.verified && (
             <div style={{ marginTop: '1.5rem', padding: '1.5rem', background: '#dcfce7', borderRadius: 12 }}>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '1rem' }}>
-                <CheckCircle size={20} style={{ color: '#16a34a' }} />
-                <strong style={{ color: '#166534' }}>Verified Successfully!</strong>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                <CheckCircle size={26} style={{ color: '#16a34a' }} />
+                <strong style={{ color: '#166534', fontSize: '1.25rem' }}>Verified Successfully!</strong>
               </div>
 
-              {!isCertificate && verifyConfig?.studentPhoto?.enabled && result?.photoUrl && (
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-                  <img
-                    src={result.photoUrl}
-                    alt="Student Photo"
-                    style={{
-                      width: verifyConfig.studentPhoto.width || 150,
-                      height: verifyConfig.studentPhoto.height || 150,
-                      objectFit: 'cover',
-                      borderRadius: '50%',
-                      border: '3px solid #16a34a',
-                    }}
-                  />
-                </div>
-              )}
-
-              {detailItems.length > 0 && (
-                <div style={{ display: 'grid', gap: 8, fontSize: '0.875rem' }}>
-                  {detailItems.map((item) => (
-                    <div key={item.key}>
-                      <strong>{item.label}:</strong> {item.value}
+              <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: 240, order: 1 }}>
+                  {detailItems.length > 0 && (
+                    <div style={{ display: 'grid', gap: 12, fontSize: '1rem' }}>
+                      {detailItems.map((item) => (
+                        <div key={item.key} style={{ paddingBottom: 8, borderBottom: '1px solid #bbf7d0' }}>
+                          <strong style={{ display: 'block', color: '#166534', fontSize: '0.75rem', textTransform: 'uppercase', marginBottom: 2 }}>{item.label}</strong>
+                          <span style={{ fontSize: '1rem', color: '#111827' }}>{item.value}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+
+                {!isCertificate && verifyConfig?.studentPhoto?.enabled && result?.photoUrl && (
+                  <div style={{ order: 2 }}>
+                    <img
+                      src={result.photoUrl}
+                      alt="Student Photo"
+                      style={{
+                        width: 280,
+                        height: 340,
+                        objectFit: 'cover',
+                        borderRadius: 12,
+                        border: '4px solid #16a34a',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
