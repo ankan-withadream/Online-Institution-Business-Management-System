@@ -14,3 +14,6 @@ client/package-lock.json
 skills-lock.json
 .commandcode/
 .sisyphus/
+env prod
+client/client.zip
+server/server.zip
