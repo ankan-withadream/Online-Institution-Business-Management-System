@@ -4,12 +4,14 @@ import { format } from 'date-fns';
 import api from '../../services/api';
 import { useFetch } from '../../hooks/useFetch';
 import toast from 'react-hot-toast';
+import DataTable from '../../components/ui/DataTable';
 
 const AdminPayments = () => {
-  const { data: feePayments, loading: paymentsLoading, refetch: refetchPayments } = useFetch('/fees');
+  const { refetch: refetchPayments } = useFetch('/fees');
   const { data: franchises } = useFetch('/franchises');
   const { data: courses } = useFetch('/courses');
   const { data: students } = useFetch('/students');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -138,14 +140,15 @@ const AdminPayments = () => {
       });
       toast.success('Payment recorded successfully');
       setPayModalOpen(false);
-      
+
       // Reset form
       setSelectedStudentId('');
       setTransactionId('');
       setRemarks('');
       setCustomAmount('');
       setPaymentType('full');
-      
+
+      setRefreshKey((k) => k + 1);
       refetchPayments();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Payment failed');
@@ -173,48 +176,25 @@ const AdminPayments = () => {
         </div>
       </div>
 
-      <div className="card table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Student</th>
-              <th>Course</th>
-              <th>Franchise</th>
-              <th>Amount</th>
-              <th>Type</th>
-              <th>Method</th>
-              <th>Transaction ID</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {feePayments?.map(p => (
-              <tr key={p.id}>
-                <td>{format(new Date(p.created_at), 'PP')}</td>
-                <td>
-                  <div style={{ fontWeight: 500 }}>{p.students?.users?.full_name}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{p.students?.student_id_number}</div>
-                </td>
-                <td>{p.courses?.name}</td>
-                <td>{p.franchises?.organization_name || '-'}</td>
-                <td style={{ fontWeight: 500, color: '#22c55e' }}>₹{Number(p.paid_amount).toLocaleString()}</td>
-                <td style={{ textTransform: 'capitalize' }}>{p.payment_type}</td>
-                <td style={{ textTransform: 'capitalize' }}>{p.payment_method?.replace(/_/g, ' ')}</td>
-                <td><code style={{ fontSize: '0.75rem' }}>{p.transaction_id}</code></td>
-                <td>
-                  <span className={`badge badge-${p.status === 'completed' ? 'success' : p.status === 'failed' ? 'danger' : 'warning'}`}>
-                    {p.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {(!feePayments || feePayments.length === 0) && (
-          <div className="empty-state"><p>No payment records found.</p></div>
-        )}
-      </div>
+      <DataTable
+        key={refreshKey}
+        resource="fees"
+        columns={paymentColumns}
+        emptyMessage="No payment records found."
+        filters={[
+          { source: 'status', label: 'Status', options: [
+            { value: 'completed', label: 'Completed' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'failed', label: 'Failed' },
+          ] },
+          { source: 'payment_type', label: 'Type', options: [
+            { value: 'full', label: 'Full' },
+            { value: 'half', label: 'Half' },
+            { value: 'quarter', label: 'Quarter' },
+            { value: 'custom', label: 'Custom' },
+          ] },
+        ]}
+      />
 
       {qrModalOpen && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
@@ -436,5 +416,25 @@ const AdminPayments = () => {
     </div>
   );
 };
+
+
+const paymentColumns = [
+  { source: 'created_at', label: 'Date', sortable: true, render: (v) => v ? format(new Date(v), 'PP') : '-' },
+  { source: 'students.users.full_name', label: 'Student', render: (v, r) => (
+    <>
+      <div style={{ fontWeight: 500 }}>{v}</div>
+      <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>{r.students?.student_id_number}</div>
+    </>
+  ) },
+  { source: 'courses.name', label: 'Course' },
+  { source: 'franchises.organization_name', label: 'Franchise' },
+  { source: 'paid_amount', label: 'Amount', sortable: true, render: (v) => <span style={{ fontWeight: 500, color: '#22c55e' }}>₹{Number(v).toLocaleString()}</span> },
+  { source: 'payment_type', label: 'Type', render: (v) => <span style={{ textTransform: 'capitalize' }}>{v}</span> },
+  { source: 'payment_method', label: 'Method', render: (v) => <span style={{ textTransform: 'capitalize' }}>{(v || '').replace(/_/g, ' ')}</span> },
+  { source: 'transaction_id', label: 'Transaction ID', render: (v) => <code style={{ fontSize: '0.75rem' }}>{v}</code> },
+  { source: 'status', label: 'Status', sortable: true, render: (v) => (
+    <span className={`badge badge-${v === 'completed' ? 'success' : v === 'failed' ? 'danger' : 'warning'}`}>{v}</span>
+  ) },
+];
 
 export default AdminPayments;

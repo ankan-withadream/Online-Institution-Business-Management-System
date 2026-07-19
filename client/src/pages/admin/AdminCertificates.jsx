@@ -1,34 +1,25 @@
-import { useState, useRef } from 'react';
-import { Award, Download, FileText, CheckCircle, X, Upload, FileBadge } from 'lucide-react';
+import { useState } from 'react';
+import { Award, Download, FileText, X, FileBadge } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import CertificateTemplate from '../../components/pdf/CertificateTemplate';
 import MigrationCertificateTemplate from '../../components/pdf/MigrationCertificateTemplate';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import DataTable from '../../components/ui/DataTable';
+import { useListContext } from 'ra-core';
 
 const AdminCertificates = () => {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedSession, setSelectedSession] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [generatedCert, setGeneratedCert] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  // Tracks which template the modal is currently previewing.
-  // 'certificate' → standard certificate; 'migration' → migration cert.
   const [templateMode, setTemplateMode] = useState('certificate');
-  // Tracks which bulk operation is in flight. 'certificate' generates
-  // regular certificates; 'migration' generates migration certificates
-  // for students who already have a regular certificate recorded.
-  const [bulkMode, setBulkMode] = useState('certificate');
-  
-  const fileInputRef = useRef(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const { data: courses, loading: coursesLoading } = useFetch('/courses');
-  const { data: students, loading: studentsLoading } = useFetch(
-    selectedCourse ? `/students?courseId=${selectedCourse}${selectedSession ? `&sessionId=${selectedSession}` : ''}` : null
-  );
 
   const handleCourseChange = (e) => {
     setSelectedCourse(e.target.value);
@@ -40,18 +31,15 @@ const AdminCertificates = () => {
     setTemplateMode('certificate');
     setIsGenerating(true);
     setIsModalOpen(true);
-
     try {
       const payload = {
         studentId: student.id,
         courseId: selectedCourse,
         issueDate: new Date().toISOString().split('T')[0],
-        fileUrl: '' // Keeping empty for now as requested
+        fileUrl: ''
       };
-
       const response = await api.post('/certificates', payload);
       setGeneratedCert(response.data);
-
       if (response.data.isExisting) {
         toast.success('Retrieved existing certificate');
       } else {
@@ -71,10 +59,6 @@ const AdminCertificates = () => {
     setGeneratedCert(null);
   };
 
-  // ── Generate Migration certificate (client-side, no DB write) ──
-  // Looks up the student's existing certificate record for the
-  // selected course. If none is found, asks the user to generate the
-  // regular certificate first.
   const handleGenerateMigration = async (student) => {
     setIsGenerating(true);
     setSelectedStudent(student);
@@ -84,16 +68,11 @@ const AdminCertificates = () => {
         api.get(`/students/${student.id}/photo`).catch(() => ({ data: { photoUrl: null } })),
       ]);
       const match = (existing || []).find(c => c.course_id === selectedCourse);
-
       if (!match) {
         toast.error('Please generate the certificate first before creating a migration certificate.');
         setSelectedStudent(null);
         return;
       }
-
-      // Build a synthetic generatedCert object shaped like the create
-      // response so the existing templateProps pipeline can render
-      // either template without changes.
       setGeneratedCert({
         ...match,
         photoUrl: photoRes?.data?.photoUrl ?? null,
@@ -109,238 +88,67 @@ const AdminCertificates = () => {
     }
   };
 
-  const handleDownloadTemplate = () => {
-    if (!students || students.length === 0) {
-      toast.error('No students found for this course.');
-      return;
-    }
-    
-    let csvContent = "Student ID,Student ID Number,Student Name,Issue Date,File URL\n";
-    const defaultIssueDate = new Date().toISOString().split('T')[0];
-    
-    students.forEach(student => {
-      if (student.id && student.student_id_number) {
-        const studentName = student.users?.full_name 
-          ? `"${student.users.full_name.replace(/"/g, '""')}"` 
-          : 'Unknown';
-        csvContent += `${student.id},${student.student_id_number},${studentName},${defaultIssueDate},\n`;
-      }
-    });
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `bulk_certificates_template_${courseDetails?.name?.replace(/\s+/g, '_') || 'course'}.csv`;
-    link.click();
-  };
-
-  const handleBulkUpload = (e) => {
-    e.preventDefault();
-    if (!fileInputRef.current?.files[0]) {
-      toast.error('Please upload a CSV file');
-      return;
-    }
-
-    const file = fileInputRef.current.files[0];
-    const reader = new FileReader();
-
-    reader.onload = async (event) => {
-      try {
-        setIsGenerating(true);
-        setBulkMode('certificate');
-        setTemplateMode('certificate');
-        setIsBulkModalOpen(false);
-        setIsModalOpen(true);
-        setSelectedStudent(null);
-        setGeneratedCert([]);
-
-        const text = event.target.result;
-        const lines = text.split('\n').filter(l => l.trim() !== '');
-        if (lines.length < 2) throw new Error('File is empty or missing data rows');
-
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const studentIdIndex = headers.findIndex(h => h === 'student id');
-        const issueDateIndex = headers.findIndex(h => h === 'issue date');
-        const fileUrlIndex = headers.findIndex(h => h === 'file url');
-
-        if (studentIdIndex === -1) {
-          throw new Error('CSV must contain "Student ID" column');
-        }
-
-        const generatedCerts = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const rowText = lines[i];
-          const values = [];
-          let inQuotes = false;
-          let currentValue = '';
-          for (let j = 0; j < rowText.length; j++) {
-            const char = rowText[j];
-            if (char === '"') {
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              values.push(currentValue.trim());
-              currentValue = '';
-            } else {
-              currentValue += char;
-            }
-          }
-          values.push(currentValue.trim());
-
-          const studentId = values[studentIdIndex];
-          if (!studentId) continue;
-
-          const issueDate = issueDateIndex !== -1 ? values[issueDateIndex] : new Date().toISOString().split('T')[0];
-          const fileUrl = fileUrlIndex !== -1 ? values[fileUrlIndex] : '';
-
-          const payload = {
+  const handleBulkGenerate = async (ids, mode) => {
+    if (!ids.length) return;
+    setIsGenerating(true);
+    setTemplateMode(mode);
+    try {
+      const results = [];
+      for (const studentId of ids) {
+        const student = await api.get(`/students/${studentId}`).then(r => r.data);
+        if (mode === 'certificate') {
+          const response = await api.post('/certificates', {
             studentId,
             courseId: selectedCourse,
-            issueDate: issueDate || new Date().toISOString().split('T')[0],
-            fileUrl
-          };
-
-          const response = await api.post('/certificates', payload);
-          const studentInfo = students?.find(s => s.id === studentId);
-          
-          generatedCerts.push({
-            studentName: studentInfo?.users?.full_name || 'Unknown Student',
-            courseName: courseDetails?.name || 'Unknown Course',
+            issueDate: new Date().toISOString().split('T')[0],
+            fileUrl: ''
+          });
+          results.push({
+            studentName: student.users?.full_name,
+            courseName: courseDetails?.name,
             issueDate: response.data.issue_date,
             certificateCode: response.data.certificate_number,
-            fileUrl: response.data.file_url,
-            fatherName: studentInfo?.father_name,
-            studentIdNumber: studentInfo?.student_id_number,
+            fatherName: student.father_name,
+            studentIdNumber: student.student_id_number,
             photoUrl: response.data.photoUrl,
           });
-        }
-
-        setGeneratedCert(generatedCerts);
-        toast.success(`Successfully processed ${generatedCerts.length} certificates`);
-      } catch (err) {
-        toast.error(err.message || 'Error processing CSV file');
-        setIsModalOpen(false);
-      } finally {
-        setIsGenerating(false);
-      }
-    };
-
-    reader.onerror = () => {
-      toast.error('Failed to read the file');
-      setIsGenerating(false);
-    };
-
-    reader.readAsText(file);
-  };
-
-  // ── Bulk Migration upload (client-side render, no DB write) ──
-  // Mirrors handleBulkUpload but skips students without an existing
-  // certificate for the selected course, since migration certificates
-  // reuse the recorded certificate as their data source.
-  const handleBulkMigrationUpload = (e) => {
-    e.preventDefault();
-    if (!fileInputRef.current?.files[0]) {
-      toast.error('Please upload a CSV file');
-      return;
-    }
-
-    const file = fileInputRef.current.files[0];
-    const reader = new FileReader();
-
-    reader.onload = async (event) => {
-      try {
-        setIsGenerating(true);
-        setBulkMode('migration');
-        setTemplateMode('migration');
-        setIsBulkModalOpen(false);
-        setIsModalOpen(true);
-        setSelectedStudent(null);
-        setGeneratedCert([]);
-
-        const text = event.target.result;
-        const lines = text.split('\n').filter(l => l.trim() !== '');
-        if (lines.length < 2) throw new Error('CSV is empty or has no data rows');
-
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-        const studentIdIndex = headers.findIndex(h => h === 'student id');
-        if (studentIdIndex === -1) throw new Error('CSV must contain "Student ID" column');
-
-        const migrationCerts = [];
-        const skipped = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const rowText = lines[i];
-          const values = [];
-          let inQuotes = false;
-          let currentValue = '';
-          for (let j = 0; j < rowText.length; j++) {
-            const char = rowText[j];
-            if (char === '"') inQuotes = !inQuotes;
-            else if (char === ',' && !inQuotes) {
-              values.push(currentValue.trim());
-              currentValue = '';
-            } else {
-              currentValue += char;
-            }
-          }
-          values.push(currentValue.trim());
-
-          const studentId = values[studentIdIndex];
-          if (!studentId) continue;
-
-          const studentInfo = students?.find(s => s.id === studentId);
-
+        } else {
           const [{ data: existing }, photoRes] = await Promise.all([
             api.get(`/certificates/student/${studentId}`),
             api.get(`/students/${studentId}/photo`).catch(() => ({ data: { photoUrl: null } })),
           ]);
           const match = (existing || []).find(c => c.course_id === selectedCourse);
-
-          if (!match) {
-            skipped.push(studentInfo?.users?.full_name || studentId);
-            continue;
-          }
-
-          migrationCerts.push({
-            studentName: studentInfo?.users?.full_name || 'Unknown Student',
-            courseName: courseDetails?.name || 'Unknown Course',
+          if (!match) continue;
+          results.push({
+            studentName: student.users?.full_name,
+            courseName: courseDetails?.name,
             issueDate: match.issue_date,
             certificateCode: match.certificate_number,
-            fatherName: studentInfo?.father_name,
-            studentIdNumber: studentInfo?.student_id_number,
+            fatherName: student.father_name,
+            studentIdNumber: student.student_id_number,
             issuerName: courseDetails?.name || 'Vivekananda Education & Health Training Institute',
             photoUrl: photoRes?.data?.photoUrl ?? null,
           });
         }
-
-        if (migrationCerts.length === 0) {
-          toast.error('No students in the upload have an existing certificate. Please generate regular certificates first.');
-          setIsModalOpen(false);
-          return;
-        }
-
-        if (skipped.length > 0) {
-          toast(`Skipped ${skipped.length} student(s) without a certificate. Generate them first.`, { icon: '⚠️' });
-        }
-
-        setGeneratedCert(migrationCerts);
-        toast.success(`Generated ${migrationCerts.length} migration certificate(s)`);
-      } catch (err) {
-        toast.error(err.message || 'Error processing CSV');
-        setIsModalOpen(false);
-      } finally {
-        setIsGenerating(false);
       }
-    };
-    reader.onerror = () => {
-      toast.error('Failed to read file');
+      if (results.length === 0) {
+        toast.error('No certificates generated (students may not have existing certificates for migration).');
+        return;
+      }
+      setGeneratedCert(results);
+      setSelectedStudent(null);
+      setIsModalOpen(true);
+      toast.success(`Generated ${results.length} ${mode} certificate(s)`);
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Bulk generation failed');
+    } finally {
       setIsGenerating(false);
-    };
-    reader.readAsText(file);
+    }
   };
 
   const courseDetails = courses?.find(c => c.id === selectedCourse);
-  
+
   const isBulk = Array.isArray(generatedCert);
   const templateProps = isBulk
     ? { certificates: generatedCert }
@@ -355,13 +163,24 @@ const AdminCertificates = () => {
       };
 
   const fileName = isBulk
-    ? `Bulk_Certificates_${courseDetails?.name?.replace(/\s+/g, '_') || 'course'}.pdf`
+    ? `Bulk_${templateMode === 'migration' ? 'Migration_' : ''}Certificates_${courseDetails?.name?.replace(/\s+/g, '_') || 'course'}.pdf`
     : templateMode === 'migration'
       ? `Migration_${selectedStudent?.student_id_number || '000'}.pdf`
       : `Certificate_${selectedStudent?.student_id_number || '000'}.pdf`;
 
   const TemplateComponent = templateMode === 'migration' ? MigrationCertificateTemplate : CertificateTemplate;
   const templateDocument = <TemplateComponent {...templateProps} />;
+
+  const columns = [
+    { source: 'users.full_name', label: 'Student Name' },
+    { source: 'student_id_number', label: 'Student ID' },
+    { source: 'users.email', label: 'Email' },
+    { source: 'enrollment_date', label: 'Enrollment Date', render: (v) => v ? new Date(v).toLocaleDateString() : '-' },
+  ];
+
+  const params = {};
+  if (selectedCourse) params['filter[course_id]'] = selectedCourse;
+  if (selectedSession) params['filter[session_id]'] = selectedSession;
 
   return (
     <div className="admin-certificates">
@@ -376,112 +195,61 @@ const AdminCertificates = () => {
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1rem', maxWidth: '800px' }}>
           <div className="form-group" style={{ flex: 1, margin: 0 }}>
             <label className="form-label">Select Course</label>
-            <select
-              value={selectedCourse}
-              onChange={handleCourseChange}
-              className="form-input"
-              disabled={coursesLoading}
-            >
+            <select value={selectedCourse} onChange={handleCourseChange} className="form-input" disabled={coursesLoading}>
               <option value="">-- Select Course --</option>
               {courses && courses.map(course => (
                 <option key={course.id} value={course.id}>{course.name}</option>
               ))}
             </select>
           </div>
-
           {selectedCourse && (
             <div className="form-group" style={{ flex: 1, margin: 0 }}>
               <label className="form-label">Select Session (Optional)</label>
-              <select
-                value={selectedSession}
-                onChange={(e) => setSelectedSession(e.target.value)}
-                className="form-input"
-              >
+              <select value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)} className="form-input">
                 <option value="">-- All Sessions --</option>
                 {courses?.find(c => c.id === selectedCourse)?.sessions?.map(s => (
-                  <option key={s.id} value={s.id}>
-                    {s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})
-                  </option>
+                  <option key={s.id} value={s.id}>{s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})</option>
                 ))}
               </select>
             </div>
           )}
-
-          <button 
-            className="btn btn-secondary" 
-            disabled={!selectedCourse || studentsLoading}
-            onClick={() => setIsBulkModalOpen(true)}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', height: '42px' }}
-          >
-            <Upload size={18} /> Bulk Generate
-          </button>
         </div>
       </div>
 
       {selectedCourse && (
-        <div className="card table-container">
-          {studentsLoading ? (
-            <div className="loading-screen" style={{ padding: '3rem' }}><div className="spinner" /></div>
-          ) : (!students || students.length === 0) ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-              <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-              <p>No students found for this course.</p>
-            </div>
-          ) : (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Student Name</th>
-                  <th>Student ID</th>
-                  <th>Email</th>
-                  <th>Enrollment Date</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map(student => (
-                  <tr key={student.id}>
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{student.users?.full_name || 'Unknown'}</div>
-                    </td>
-                    <td>{student.student_id_number || 'N/A'}</td>
-                    <td>{student.users?.email || 'N/A'}</td>
-                    <td>{new Date(student.enrollment_date).toLocaleDateString()}</td>
-                    <td>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                        <button
-                          onClick={() => handleGenerateClick(student)}
-                          className="btn btn-primary"
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}
-                        >
-                          <Award size={16} /> Generate Certificate
-                        </button>
-                        <button
-                          onClick={() => handleGenerateMigration(student)}
-                          className="btn btn-secondary"
-                          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}
-                        >
-                          <FileBadge size={16} /> Generate Migration
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <DataTable
+          key={refreshKey}
+          resource="students"
+          columns={columns}
+          params={params}
+          emptyMessage="No students found for this course."
+          bulkActions={
+            <CertBulkActions
+              onGenerate={(ids) => handleBulkGenerate(ids, 'certificate')}
+              onGenerateMigration={(ids) => handleBulkGenerate(ids, 'migration')}
+              disabled={!selectedCourse}
+            />
+          }
+          rowActions={(student) => (
+            <>
+              <button onClick={() => handleGenerateClick(student)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+                <Award size={16} /> Generate
+              </button>
+              <button onClick={() => handleGenerateMigration(student)} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
+                <FileBadge size={16} /> Migration
+              </button>
+            </>
           )}
-        </div>
+        />
       )}
 
-      {/* Certificate Modal */}
       {isModalOpen && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '90%', maxWidth: '1000px', height: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb' }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  {templateMode === 'migration' ? <FileBadge className="text-primary-600" /> : <Award className="text-primary-600" />}
+                  {templateMode === 'migration' ? <FileBadge /> : <Award />}
                   {templateMode === 'migration' ? 'Migration Certificate' : 'Certificate Generation'}
                 </h2>
                 <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.875rem' }}>
@@ -503,15 +271,11 @@ const AdminCertificates = () => {
                     )}
                   </PDFDownloadLink>
                 )}
-                <button
-                  onClick={handleCloseModal}
-                  style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}
-                >
+                <button onClick={handleCloseModal} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
                   <X size={20} />
                 </button>
               </div>
             </div>
-
             <div style={{ flex: 1, backgroundColor: '#e5e7eb', padding: '1rem', position: 'relative' }}>
               {isGenerating ? (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 10 }}>
@@ -524,75 +288,25 @@ const AdminCertificates = () => {
                 </PDFViewer>
               ) : null}
             </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Generate Modal */}
-      {isBulkModalOpen && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '700px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Bulk Generate Certificates</h2>
-              <button
-                onClick={() => setIsBulkModalOpen(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="card" style={{ padding: '1.5rem', marginTop: '1rem', background: '#f9fafb', border: '1px dashed #d1d5db' }}>
-              <p style={{ fontSize: '0.875rem', color: '#4b5563', marginBottom: '1rem' }}>
-                Download the template to get the list of student IDs for the selected course ({courseDetails?.name}). 
-              </p>
-              <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
-                <button type="button" onClick={handleDownloadTemplate} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <Download size={16} /> Download CSV Template
-                </button>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Upload Filled CSV</label>
-                <input
-                  type="file"
-                  accept=".csv"
-                  ref={fileInputRef}
-                  className="form-input"
-                  style={{ padding: '0.5rem' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
-              <button
-                type="button"
-                onClick={() => setIsBulkModalOpen(false)}
-                className="btn btn-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleBulkMigrationUpload}
-                className="btn btn-secondary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-              >
-                <FileBadge size={16} /> Generate Migration Certificates
-              </button>
-              <button
-                type="button"
-                onClick={handleBulkUpload}
-                className="btn btn-primary"
-              >
-                Generate Certificates
-              </button>
-            </div>
           </div>
         </div>
       )}
     </div>
+  );
+};
+
+const CertBulkActions = ({ onGenerate, onGenerateMigration, disabled }) => {
+  const { selectedIds = [] } = useListContext();
+  if (!selectedIds.length || disabled) return null;
+  return (
+    <>
+      <button className="btn btn-sm btn-secondary" onClick={() => onGenerate(selectedIds)}>
+        <Award size={14} /> Generate Certificates
+      </button>
+      <button className="btn btn-sm btn-secondary" onClick={() => onGenerateMigration(selectedIds)}>
+        <FileBadge size={14} /> Generate Migration
+      </button>
+    </>
   );
 };
 

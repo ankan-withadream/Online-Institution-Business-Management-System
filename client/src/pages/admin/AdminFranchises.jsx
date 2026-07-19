@@ -4,9 +4,10 @@ import { Eye, X, FileText, Download, Image as ImageIcon, FileBadge } from 'lucid
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import FranchiseAuthorizationCertificateTemplate from '../../components/pdf/FranchiseAuthorizationCertificateTemplate';
 import api from '../../services/api';
+import DataTable from '../../components/ui/DataTable';
 
 const AdminFranchises = () => {
-  const { data: franchises, loading, refetch } = useFetch('/franchises');
+  const { refetch } = useFetch('/franchises');
   const [processing, setProcessing] = useState(null);
   const [viewingFranchise, setViewingFranchise] = useState(null);
   const [documents, setDocuments] = useState([]);
@@ -14,6 +15,7 @@ const AdminFranchises = () => {
   const [previewDocId, setPreviewDocId] = useState(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authFranchise, setAuthFranchise] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (viewingFranchise) {
@@ -74,51 +76,39 @@ const AdminFranchises = () => {
   return (
     <div>
       <div className="page-header"><h1>Franchises</h1></div>
-      {loading ? <div className="loading-screen"><div className="spinner" /></div> : (
-        <div className="card table-container">
-          <table className="data-table">
-            <thead><tr><th>Organization</th><th>Contact</th><th>City</th><th>Status</th><th>Actions</th></tr></thead>
-            <tbody>
-              {franchises?.map(f => (
-                <tr key={f.id}>
-                  <td>{f.organization_name}</td>
-                  <td>{f.contact_person}<br/><span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{f.email}</span></td>
-                  <td>{f.city}, {f.state}</td>
-                  <td><span className={`badge badge-${f.status === 'approved' ? 'success' : f.status === 'rejected' ? 'danger' : 'warning'}`}>{f.status}</span></td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                      <button
-                        onClick={() => setViewingFranchise(f)}
-                        className="btn-icon"
-                        title="View details"
-                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Eye size={18} />
-                      </button>
-                      {f.status === 'approved' && (
-                        <button
-                          onClick={() => handleGenerateAuthCert(f)}
-                          className="btn-icon"
-                          title="Generate Authorization Certificate"
-                          style={{ background: 'none', border: 'none', color: '#8b5cf6', cursor: 'pointer', padding: '0.25rem' }}
-                        >
-                          <FileBadge size={18} />
-                        </button>
-                      )}
-                      {f.status === 'pending' && (
-                        <>
-                          <button className="btn btn-primary btn-sm" onClick={() => handleStatus(f.id, 'approved')} disabled={processing === f.id}>Approve</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleStatus(f.id, 'rejected')} disabled={processing === f.id}>Reject</button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(!franchises || franchises.length === 0) && <div className="empty-state"><p>No franchise applications</p></div>}
-        </div>
+      {franchiseColumns && (
+        <DataTable
+          key={refreshKey}
+          resource="franchises"
+          columns={franchiseColumns}
+          emptyMessage="No franchise applications"
+          filters={[
+            { source: 'status', label: 'Status', options: [
+              { value: 'pending', label: 'Pending' },
+              { value: 'approved', label: 'Approved' },
+              { value: 'rejected', label: 'Rejected' },
+              { value: 'suspended', label: 'Suspended' },
+            ] },
+          ]}
+          rowActions={(f) => (
+            <>
+              <button onClick={() => setViewingFranchise(f)} className="btn-icon" title="View details" style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}>
+                <Eye size={18} />
+              </button>
+              {f.status === 'approved' && (
+                <button onClick={() => handleGenerateAuthCert(f)} className="btn-icon" title="Generate Authorization Certificate" style={{ background: 'none', border: 'none', color: '#8b5cf6', cursor: 'pointer', padding: '0.25rem' }}>
+                  <FileBadge size={18} />
+                </button>
+              )}
+              {f.status === 'pending' && (
+                <>
+                  <button className="btn btn-primary btn-sm" onClick={() => handleStatus(f.id, 'approved')} disabled={processing === f.id}>Approve</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleStatus(f.id, 'rejected')} disabled={processing === f.id}>Reject</button>
+                </>
+              )}
+            </>
+          )}
+        />
       )}
 
       {viewingFranchise && (
@@ -320,4 +310,13 @@ const AdminFranchises = () => {
     </div>
   );
 };
+const franchiseColumns = [
+  { source: 'organization_name', label: 'Organization', sortable: true },
+  { source: 'contact_person', label: 'Contact', render: (v, r) => <>{v}<br /><span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{r.email}</span></> },
+  { source: 'city', label: 'City', sortable: true, render: (v, r) => `${v || ''}${r.state ? ', ' + r.state : ''}` },
+  { source: 'status', label: 'Status', sortable: true, render: (v) => (
+    <span className={`badge badge-${v === 'approved' ? 'success' : v === 'rejected' ? 'danger' : 'warning'}`}>{v}</span>
+  ) },
+];
+
 export default AdminFranchises;

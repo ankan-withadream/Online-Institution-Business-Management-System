@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, X, Edit2, IdCard, FileText, Download } from 'lucide-react';
-import { useFetch } from '../../hooks/useFetch';
+import { Eye, X, Edit2, IdCard, FileText, Download, Trash2 } from 'lucide-react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
 import IdCardTemplate from '../../components/pdf/IdCardTemplate';
 import AdmitCardTemplate from '../../components/pdf/AdmitCardTemplate';
@@ -8,26 +7,29 @@ import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import DataTable from '../../components/ui/DataTable';
+import { useListContext } from 'ra-core';
+import { useBulkActions } from '../../hooks/useBulkActions';
 
 const AdminStudents = () => {
-  const { data: students, loading, refetch } = useFetch('/students');
-  const { data: courses, refetch: fetchCourses } = useFetch('/courses', { immediate: false });
   const [viewingStudent, setViewingStudent] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
   const [editFormData, setEditFormData] = useState({ course_id: '', session_id: '', status: 'active' });
   const [submitting, setSubmitting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isCardModalOpen, setIsCardModalOpen] = useState(false);
   const [cardMode, setCardMode] = useState('id');
   const [cardPhotoUrl, setCardPhotoUrl] = useState(null);
   const [generatingCard, setGeneratingCard] = useState(false);
   const [cardStudent, setCardStudent] = useState(null);
+  const [courses, setCourses] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (students) {
-      fetchCourses();
-    }
-  }, [students, fetchCourses]);
+    api.get('/courses/admin/all').then(({ data }) => {
+      setCourses(data?.data || data || []);
+    });
+  }, []);
 
   const handleEdit = (student) => {
     setEditingStudent(student);
@@ -45,7 +47,7 @@ const AdminStudents = () => {
       await api.put(`/students/${editingStudent.id}`, editFormData);
       toast.success('Student updated successfully');
       setEditingStudent(null);
-      refetch();
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update student');
     } finally {
@@ -59,7 +61,6 @@ const AdminStudents = () => {
     setGeneratingCard(true);
     setIsCardModalOpen(true);
     setCardPhotoUrl(null);
-
     try {
       const { data } = await api.get(`/students/${student.id}/photo`);
       setCardPhotoUrl(data.photoUrl);
@@ -84,7 +85,6 @@ const AdminStudents = () => {
       : '';
     const addressParts = [student.address, student.city, student.state, student.pincode].filter(Boolean);
     const dobVal = student.date_of_birth ? format(new Date(student.date_of_birth), 'PP') : null;
-
     return {
       studentName: student.users?.full_name || '',
       fatherName: student.father_name || '',
@@ -100,66 +100,90 @@ const AdminStudents = () => {
     };
   };
 
+  const columns = [
+    { source: 'student_id_number', label: 'ID', sortable: true, render: (v) => <code>{v}</code> },
+    { source: 'users.full_name', label: 'Name', sortable: true },
+    { source: 'users.email', label: 'Email' },
+    { source: 'courses.name', label: 'Course' },
+    {
+      source: 'sessions.session_type',
+      label: 'Session',
+      render: (_, r) => r.sessions ? `${r.sessions.session_type} (${r.sessions.start_date} - ${r.sessions.end_date})` : '-',
+    },
+    {
+      source: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (v) => <span className={`badge badge-${v === 'active' ? 'success' : v === 'graduated' ? 'info' : 'danger'}`}>{v}</span>,
+    },
+    { source: 'enrollment_date', label: 'Enrolled', sortable: true, render: (v) => (v ? format(new Date(v), 'PP') : '-') },
+  ];
+
   return (
     <div>
       <div className="page-header"><h1>Students</h1></div>
-      {loading ? <div className="loading-screen"><div className="spinner" /></div> : (
-        <div className="card table-container">
-          <table className="data-table">
-            <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Course</th><th>Session</th><th>Status</th><th>Enrolled</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
-            <tbody>
-              {students?.map(s => (
-                <tr key={s.id}>
-                  <td><code>{s.student_id_number}</code></td>
-                  <td>{s.users?.full_name}</td>
-                  <td>{s.users?.email}</td>
-                  <td>{s.courses?.name}</td>
-                  <td>{s.sessions?.session_type} - {s.sessions?.start_date} - {s.sessions?.end_date}</td>
-                  <td><span className={`badge badge-${s.status === 'active' ? 'success' : s.status === 'graduated' ? 'info' : 'danger'}`}>{s.status}</span></td>
-                  <td>{s.enrollment_date && format(new Date(s.enrollment_date), 'PP')}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => setViewingStudent(s)}
-                        className="btn-icon"
-                        title="View details"
-                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(s)}
-                        className="btn-icon"
-                        title="Edit student"
-                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleGenerateCard(s, 'id')}
-                        className="btn-icon"
-                        title="Generate ID Card"
-                        style={{ background: 'none', border: 'none', color: '#8b5cf6', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <IdCard size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleGenerateCard(s, 'admit')}
-                        className="btn-icon"
-                        title="Generate Admit Card"
-                        style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <FileText size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {(!students || students.length === 0) && <div className="empty-state"><p>No students found</p></div>}
-        </div>
-      )}
+
+      <DataTable
+        key={refreshKey}
+        resource="students"
+        columns={columns}
+        emptyMessage="No students found"
+        filters={[
+          {
+            source: 'status',
+            label: 'Status',
+            options: [
+              { value: 'active', label: 'Active' },
+              { value: 'graduated', label: 'Graduated' },
+              { value: 'suspended', label: 'Suspended' },
+            ],
+          },
+        ]}
+        bulkActions={
+          <AdminStudentBulkActions
+            onGenerateId={(ids) => {
+              if (ids.length === 1) {
+                // Single-student: reuse the per-row flow so the photo modal opens
+                api.get('/students').then(({ data }) => {
+                  const list = data?.data || data || [];
+                  const student = list.find(s => s.id === ids[0]);
+                  if (student) handleGenerateCard(student, 'id');
+                });
+              } else {
+                toast('ID card generation for multiple students opens one at a time. Selecting 1 student opens the preview.', { icon: 'ℹ️' });
+              }
+            }}
+            onGenerateAdmit={(ids) => {
+              if (ids.length === 1) {
+                api.get('/students').then(({ data }) => {
+                  const list = data?.data || data || [];
+                  const student = list.find(s => s.id === ids[0]);
+                  if (student) handleGenerateCard(student, 'admit');
+                });
+              } else {
+                toast('Admit card generation for multiple students opens one at a time.', { icon: 'ℹ️' });
+              }
+            }}
+            onAfterDelete={() => setRefreshKey((k) => k + 1)}
+          />
+        }
+        rowActions={(s) => (
+          <>
+            <button onClick={() => setViewingStudent(s)} className="btn-icon" title="View details" style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}>
+              <Eye size={18} />
+            </button>
+            <button onClick={() => handleEdit(s)} className="btn-icon" title="Edit student" style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}>
+              <Edit2 size={18} />
+            </button>
+            <button onClick={() => handleGenerateCard(s, 'id')} className="btn-icon" title="Generate ID Card" style={{ background: 'none', border: 'none', color: '#8b5cf6', cursor: 'pointer', padding: '0.25rem' }}>
+              <IdCard size={18} />
+            </button>
+            <button onClick={() => handleGenerateCard(s, 'admit')} className="btn-icon" title="Generate Admit Card" style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: '0.25rem' }}>
+              <FileText size={18} />
+            </button>
+          </>
+        )}
+      />
 
       {viewingStudent && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
@@ -240,11 +264,57 @@ const AdminStudents = () => {
         </div>
       )}
 
-      {/* ID Card / Admit Card Modal */}
+      {editingStudent && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Edit Student</h2>
+              <button onClick={() => setEditingStudent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label className="form-label">Assign Course</label>
+                <select className="form-select" value={editFormData.course_id} onChange={(e) => setEditFormData({ ...editFormData, course_id: e.target.value, session_id: '' })}>
+                  <option value="">Select Course</option>
+                  {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              {editFormData.course_id && (() => {
+                const sel = courses.find(c => c.id === editFormData.course_id);
+                return (
+                  <div className="form-group">
+                    <label className="form-label">Assign Session</label>
+                    <select className="form-select" value={editFormData.session_id} onChange={(e) => setEditFormData({ ...editFormData, session_id: e.target.value })}>
+                      <option value="">No Session</option>
+                      {sel?.sessions?.map(s => (
+                        <option key={s.id} value={s.id}>{s.session_type} ({s.start_date || 'TBA'} to {s.end_date || 'TBA'})</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+              <div className="form-group">
+                <label className="form-label">Status</label>
+                <select className="form-select" value={editFormData.status} onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}>
+                  <option value="active">Active</option>
+                  <option value="graduated">Graduated</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
+                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" disabled={submitting}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {isCardModalOpen && cardStudent && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '90%', maxWidth: '1000px', height: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
-
             <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb' }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -258,35 +328,19 @@ const AdminStudents = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 {!generatingCard && (
                   <PDFDownloadLink
-                    document={
-                      cardMode === 'admit'
-                        ? <AdmitCardTemplate {...buildCardProps()} />
-                        : <IdCardTemplate {...buildCardProps()} />
-                    }
-                    fileName={
-                      cardMode === 'admit'
-                        ? `Admit_Card_${cardStudent.student_id_number || '000'}.pdf`
-                        : `ID_Card_${cardStudent.student_id_number || '000'}.pdf`
-                    }
+                    document={cardMode === 'admit' ? <AdmitCardTemplate {...buildCardProps()} /> : <IdCardTemplate {...buildCardProps()} />}
+                    fileName={cardMode === 'admit' ? `Admit_Card_${cardStudent.student_id_number || '000'}.pdf` : `ID_Card_${cardStudent.student_id_number || '000'}.pdf`}
                     className="btn btn-primary"
                     style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                   >
-                    {({ loading }) => loading ? 'Preparing...' : (
-                      <>
-                        <Download size={18} /> Download PDF
-                      </>
-                    )}
+                    {({ loading }) => loading ? 'Preparing...' : (<><Download size={18} /> Download PDF</>)}
                   </PDFDownloadLink>
                 )}
-                <button
-                  onClick={handleCloseCardModal}
-                  style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}
-                >
+                <button onClick={handleCloseCardModal} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
                   <X size={20} />
                 </button>
               </div>
             </div>
-
             <div style={{ flex: 1, backgroundColor: '#e5e7eb', padding: '1rem', position: 'relative' }}>
               {generatingCard ? (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.8)', zIndex: 10 }}>
@@ -295,93 +349,42 @@ const AdminStudents = () => {
                 </div>
               ) : (
                 <PDFViewer width="100%" height="100%" style={{ border: 'none', borderRadius: '0.5rem', backgroundColor: '#fff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                  {cardMode === 'admit'
-                    ? <AdmitCardTemplate {...buildCardProps()} />
-                    : <IdCardTemplate {...buildCardProps()} />
-                  }
+                  {cardMode === 'admit' ? <AdmitCardTemplate {...buildCardProps()} /> : <IdCardTemplate {...buildCardProps()} />}
                 </PDFViewer>
               )}
             </div>
-
-          </div>
-        </div>
-      )}
-
-      {editingStudent && (
-        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
-          <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', padding: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Edit Student</h2>
-              <button onClick={() => setEditingStudent(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit}>
-              <div className="form-group">
-                <label className="form-label">Assign Course</label>
-                <select
-                  className="form-select"
-                  value={editFormData.course_id}
-                  onChange={(e) => setEditFormData({ ...editFormData, course_id: e.target.value, session_id: '' })}
-                >
-                  <option value="">Select Course</option>
-                  {courses?.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {editFormData.course_id && (() => {
-                const selectedCourse = courses?.find(c => c.id === editFormData.course_id);
-                return (
-                  <div className="form-group">
-                    <label className="form-label">Assign Session</label>
-                    <select
-                      className="form-select"
-                      value={editFormData.session_id}
-                      onChange={(e) => setEditFormData({ ...editFormData, session_id: e.target.value })}
-                    >
-                      <option value="">No Session Assigned</option>
-                      {selectedCourse?.sessions?.map((session) => (
-                        <option key={session.id} value={session.id}>
-                          {session.session_type} ({session.start_date || 'TBA'} to {session.end_date || 'TBA'})
-                        </option>
-                      ))}
-                    </select>
-                    {(!selectedCourse?.sessions || selectedCourse.sessions.length === 0) && (
-                      <p style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '0.25rem' }}>This course has no sessions created yet.</p>
-                    )}
-                  </div>
-                );
-              })()}
-
-              <div className="form-group">
-                <label className="form-label">Status</label>
-                <select
-                  className="form-select"
-                  value={editFormData.status}
-                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
-                >
-                  <option value="active">Active</option>
-                  <option value="graduated">Graduated</option>
-                  <option value="suspended">Suspended</option>
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem' }}>
-                <button type="button" onClick={() => setEditingStudent(null)} className="btn btn-secondary" disabled={submitting}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
     </div>
   );
 };
+
+const AdminStudentBulkActions = ({ onGenerateId, onGenerateAdmit, onAfterDelete }) => {
+  const { selectedIds = [] } = useListContext();
+  const { remove, isPending } = useBulkActions('students');
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.length} student(s)? This cannot be undone.`)) return;
+    await remove();
+    onAfterDelete();
+  };
+
+  if (!selectedIds.length) return null;
+
+  return (
+    <>
+      <button className="btn btn-sm btn-secondary" onClick={() => onGenerateId(selectedIds)}>
+        <IdCard size={14} /> ID Card
+      </button>
+      <button className="btn btn-sm btn-secondary" onClick={() => onGenerateAdmit(selectedIds)}>
+        <FileText size={14} /> Admit Card
+      </button>
+      <button className="btn btn-sm btn-danger" onClick={handleDelete} disabled={isPending}>
+        <Trash2 size={14} /> {isPending ? 'Deleting…' : 'Delete'}
+      </button>
+    </>
+  );
+};
+
 export default AdminStudents;

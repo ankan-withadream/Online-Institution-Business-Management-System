@@ -1,31 +1,36 @@
-import { useAuth } from '../../context/AuthContext';
 import { useFetch } from '../../hooks/useFetch';
 import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { Building2, Users } from 'lucide-react';
+import DataTable from '../../components/ui/DataTable';
+import { setResourceUrl } from '../../resourceUrlOverrides';
 
 const FranchiseDashboard = () => {
-  const { user } = useAuth();
-  const [franchise, setFranchise] = useState(null);
+  const { data: franchise, loading: loadingFranchise } = useFetch('/franchises/me');
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetch = async () => {
-      try {
-        const { data: myFranchise } = await api.get('/franchises/me');
-        if (myFranchise) {
-          setFranchise(myFranchise);
-          const { data } = await api.get(`/franchises/${myFranchise.id}/students`);
-          setStudents(data);
-        }
-      } catch {}
+    if (!franchise) return;
+    setResourceUrl('students', `/franchises/${franchise.id}/students`);
+    api.get(`/franchises/${franchise.id}/students`).then(({ data }) => {
+      setStudents(data?.data || []);
       setLoading(false);
-    };
-    fetch();
-  }, []);
+    });
+  }, [franchise]);
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  if (loadingFranchise || loading) return <div className="loading-screen"><div className="spinner" /></div>;
+
+  const columns = [
+    { source: 'users.full_name', label: 'Name' },
+    { source: 'users.email', label: 'Email' },
+    { source: 'courses.name', label: 'Course' },
+    {
+      source: 'status',
+      label: 'Status',
+      render: (v) => <span className={`badge badge-${v === 'active' ? 'success' : 'neutral'}`}>{v}</span>,
+    },
+  ];
 
   return (
     <div>
@@ -46,24 +51,14 @@ const FranchiseDashboard = () => {
 
       <div className="card">
         <h3 style={{ fontWeight: 700, marginBottom: '1rem' }}>Students Under Your Franchise</h3>
-        <div className="table-container">
-          <table className="data-table">
-            <thead><tr><th>Name</th><th>Email</th><th>Course</th><th>Status</th></tr></thead>
-            <tbody>
-              {students.map(s => (
-                <tr key={s.id}>
-                  <td>{s.users?.full_name}</td>
-                  <td>{s.users?.email}</td>
-                  <td>{s.courses?.name}</td>
-                  <td><span className={`badge badge-${s.status === 'active' ? 'success' : 'neutral'}`}>{s.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {students.length === 0 && <div className="empty-state"><p>No students registered yet</p></div>}
-        </div>
+        <DataTable
+          resource="students"
+          columns={columns}
+          emptyMessage="No students registered yet"
+        />
       </div>
     </div>
   );
 };
+
 export default FranchiseDashboard;

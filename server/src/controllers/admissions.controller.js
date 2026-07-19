@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { generateStudentId } from '../utils/idGenerator.js';
 import { sendWelcomeSMS } from '../utils/sms.js';
+import { applyListQuery, parseListParams, respondList } from '../utils/listQuery.js';
 
 export const create = async (req, res) => {
   try {
@@ -188,14 +189,23 @@ export const getByFranchise = async (req, res) => {
       }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('admissions')
-      .select('*, courses(name)')
-      .eq('franchise_id', franchiseId)
-      .order('created_at', { ascending: false });
+    const listOpts = {
+      sortable: ['full_name', 'email', 'created_at', 'status'],
+      searchable: ['full_name', 'email', 'phone'],
+      filterable: ['status', 'course_id'],
+    };
 
-    if (error) throw error;
-    res.json(data);
+    let query = supabaseAdmin
+      .from('admissions')
+      .select('*, courses(name)', { count: 'exact' })
+      .eq('franchise_id', franchiseId);
+
+    ({ query } = applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get franchise admissions error:', err);
     res.status(500).json({ error: 'Failed to fetch franchise admissions' });

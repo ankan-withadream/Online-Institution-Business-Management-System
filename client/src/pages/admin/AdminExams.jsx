@@ -5,10 +5,14 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
 import { uploadDocument } from '../../services/documents';
+import DataTable from '../../components/ui/DataTable';
+import { useListContext } from 'ra-core';
+import { useBulkActions } from '../../hooks/useBulkActions';
 
 const AdminExams = () => {
   const { data: exams, loading, error, refetch } = useFetch('/exams');
   const { data: courses } = useFetch('/courses/admin/all');
+  const [refreshKey, setRefreshKey] = useState(0);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState(null);
@@ -241,11 +245,8 @@ const AdminExams = () => {
   const selectedCourseDetails = courses?.find(c => c.id === formData.courseId);
   const filterCourseDetails = courses?.find(c => c.id === courseFilter);
 
-  const filteredExams = exams?.filter(e => {
-    if (courseFilter && e.course_id !== courseFilter) return false;
-    if (sessionFilter && e.session_id !== sessionFilter) return false;
-    return true;
-  });
+  // DataTable handles filtering via the dataProvider's `filter[]` query params,
+  // so the previous client-side filteredExams is no longer needed here.
 
   if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
   if (error) return <div className="error-screen">{error}</div>;
@@ -296,90 +297,38 @@ const AdminExams = () => {
         </div>
       </div>
 
-      <div className="card table-container">
-        {(!filteredExams || filteredExams.length === 0) ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-            <FileText size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-            <p>No exams found. Create one to get started.</p>
-          </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Exam Name</th>
-                <th>Course</th>
-                <th>Session</th>
-                <th>Subject</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Marks (Total/Pass)</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredExams.map(e => (
-                <tr key={e.id}>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{e.name}</div>
-                  </td>
-                  <td>{e.courses?.name || '-'}</td>
-                  <td>{e.sessions?.session_type ? `${e.sessions.session_type} (${e.sessions.start_date || 'TBA'})` : '-'}</td>
-                  <td>{e.subjects?.name || '-'}</td>
-                  <td>{e.exam_date ? format(new Date(e.exam_date), 'PP') : '-'}</td>
-                  <td>
-                    <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                      {e.start_time && e.end_time ? `${e.start_time} - ${e.end_time}` : '-'}
-                    </span>
-                  </td>
-                  <td>{e.total_marks} / {e.passing_marks}</td>
-                  <td>
-                    <span className={`badge badge-${e.status === 'completed' ? 'success' : e.status === 'scheduled' ? 'info' : 'warning'}`}>
-                      {e.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => setViewingExam(e)}
-                        className="btn-icon"
-                        title="View exam"
-                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleOpenModal(e)}
-                        className="btn-icon"
-                        title="Edit exam"
-                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(e.id)}
-                        className="btn-icon"
-                        title="Delete exam"
-                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => setSubmissionsExam(e)}
-                        className="btn btn-sm btn-info"
-                        title="View submissions"
-                        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                      >
-                        <ClipboardList size={16} /> Submissions
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <DataTable
+        key={refreshKey}
+        resource="exams"
+        columns={examColumns}
+        emptyMessage="No exams found. Create one to get started."
+        infinite
+        filters={[
+          { source: 'status', label: 'Status', options: [
+            { value: 'scheduled', label: 'Scheduled' },
+            { value: 'ongoing', label: 'Ongoing' },
+            { value: 'completed', label: 'Completed' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ] },
+        ]}
+        bulkActions={<ExamBulkActions onAfterDelete={() => setRefreshKey((k) => k + 1)} />}
+        rowActions={(e) => (
+          <>
+            <button onClick={() => setViewingExam(e)} className="btn-icon" title="View exam" style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}>
+              <Eye size={18} />
+            </button>
+            <button onClick={() => handleOpenModal(e)} className="btn-icon" title="Edit exam" style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}>
+              <Edit2 size={18} />
+            </button>
+            <button onClick={() => handleDelete(e.id)} className="btn-icon" title="Delete exam" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}>
+              <Trash2 size={18} />
+            </button>
+            <button onClick={() => setSubmissionsExam(e)} className="btn btn-sm btn-info" title="View submissions" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <ClipboardList size={16} /> Submissions
+            </button>
+          </>
         )}
-      </div>
+      />
 
       {/* Create / Edit Modal */}
       {isModalOpen && (
@@ -815,6 +764,35 @@ const AdminExams = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const examColumns = [
+  { source: 'name', label: 'Exam Name', sortable: true },
+  { source: 'courses.name', label: 'Course' },
+  { source: 'sessions.session_type', label: 'Session', render: (v, r) => v ? `${v} (${r.sessions?.start_date || 'TBA'})` : '-' },
+  { source: 'subjects.name', label: 'Subject' },
+  { source: 'exam_date', label: 'Date', sortable: true, render: (v) => v ? format(new Date(v), 'PP') : '-' },
+  { source: 'start_time', label: 'Time', render: (v, r) => v && r.end_time ? `${v} - ${r.end_time}` : '-' },
+  { source: 'total_marks', label: 'Total / Pass', sortable: true, render: (v, r) => `${v} / ${r.passing_marks ?? '-'}` },
+  { source: 'status', label: 'Status', sortable: true, render: (v) => (
+    <span className={`badge badge-${v === 'completed' ? 'success' : v === 'scheduled' ? 'info' : 'warning'}`}>{v}</span>
+  ) },
+];
+
+const ExamBulkActions = ({ onAfterDelete }) => {
+  const { selectedIds = [] } = useListContext();
+  const { remove, isPending } = useBulkActions('exams');
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.length} exam(s)? This cannot be undone.`)) return;
+    await remove();
+    onAfterDelete();
+  };
+  if (!selectedIds.length) return null;
+  return (
+    <button className="btn btn-sm btn-danger" onClick={handleDelete} disabled={isPending}>
+      <Trash2 size={14} /> Delete
+    </button>
   );
 };
 

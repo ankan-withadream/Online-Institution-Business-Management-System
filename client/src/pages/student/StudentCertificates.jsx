@@ -1,55 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useFetch } from '../../hooks/useFetch';
+import { format } from 'date-fns';
+import { Download } from 'lucide-react';
+import DataTable from '../../components/ui/DataTable';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const StudentCertificates = () => {
-  const [certs, setCerts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: profile } = useFetch('/students/me');
+  const studentId = profile?.id;
+  const url = studentId ? `/certificates/student/${studentId}` : null;
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const { data: profile } = await api.get('/students/me');
-        const { data } = await api.get(`/certificates/student/${profile.id}`);
-        setCerts(data);
-      } catch {}
-      setLoading(false);
-    };
-    fetch();
-  }, []);
-
-  const handleDownload = async (id) => {
+  const handleDownload = async (cert) => {
     try {
-      const { data } = await api.get(`/certificates/${id}/download`);
+      const { data } = await api.get(`/certificates/${cert.id}/download`);
       window.open(data.downloadUrl, '_blank');
     } catch {
-      alert('Download failed');
+      toast.error('Download failed');
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  const columns = [
+    { source: 'certificate_number', label: 'Certificate #', render: (v) => <code>{v}</code> },
+    { source: 'courses.name', label: 'Course' },
+    { source: 'issue_date', label: 'Issue Date', sortable: true, render: (v) => (v ? format(new Date(v), 'PP') : '-') },
+  ];
 
   return (
     <div>
       <div className="page-header"><h1>My Certificates</h1></div>
-      <div className="card table-container">
-        <table className="data-table">
-          <thead><tr><th>Certificate #</th><th>Course</th><th>Issue Date</th><th>Action</th></tr></thead>
-          <tbody>
-            {certs.map(c => (
-              <tr key={c.id}>
-                <td><code>{c.certificate_number}</code></td>
-                <td>{c.courses?.name}</td>
-                <td>{c.issue_date}</td>
-                <td>
-                  <button className="btn btn-primary btn-sm" onClick={() => handleDownload(c.id)}>Download</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {certs.length === 0 && <div className="empty-state"><p>No certificates issued yet</p></div>}
-      </div>
+      {studentId && (
+        <DataTable
+          resource="certificates"
+          columns={columns}
+          url={url}
+          emptyMessage="No certificates issued yet"
+          rowActions={(cert) => (
+            <button className="btn btn-primary btn-sm" onClick={() => handleDownload(cert)}>
+              <Download size={14} /> Download
+            </button>
+          )}
+        />
+      )}
     </div>
   );
 };
+
 export default StudentCertificates;

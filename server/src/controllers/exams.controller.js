@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { applyListQuery, parseListParams, respondList } from '../utils/listQuery.js';
 
 export const checkAndUpdateExamStatuses = async () => {
   try {
@@ -87,14 +88,18 @@ export const create = async (req, res) => {
 export const getAll = async (req, res) => {
   try {
     await checkAndUpdateExamStatuses();
+    const listOpts = {
+      sortable: ['name', 'exam_date', 'total_marks', 'status', 'created_at'],
+      searchable: ['name'],
+      filterable: ['status', 'course_id', 'session_id'],
+    };
+
     let query = supabaseAdmin
       .from('exams')
-      .select('*, courses(name), sessions(session_type, start_date, end_date), subjects(name)')
-      .order('exam_date', { ascending: true });
-
-    if (req.query.courseId) query = query.eq('course_id', req.query.courseId);
-    if (req.query.sessionId) query = query.eq('session_id', req.query.sessionId);
-    if (req.query.status) query = query.eq('status', req.query.status);
+      .select(
+        '*, courses(name), sessions(session_type, start_date, end_date), subjects(name)',
+        { count: 'exact' }
+      );
 
     // Students see only exams for their course
     if (req.user.role === 'student') {
@@ -110,9 +115,12 @@ export const getAll = async (req, res) => {
       }
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    res.json(data);
+    ({ query } = applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('exam_date', { ascending: true });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get exams error:', err);
     res.status(500).json({ error: 'Failed to fetch exams' });

@@ -1,31 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { Eye, X, FileText, Download, Image as ImageIcon } from 'lucide-react';
 import api from '../../services/api';
+import DataTable from '../../components/ui/DataTable';
+import { useFetch } from '../../hooks/useFetch';
+import { setResourceUrl } from '../../resourceUrlOverrides';
 
 const FranchiseAdmissions = () => {
-  const [franchise, setFranchise] = useState(null);
-  const [admissions, setAdmissions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { data: franchise, loading: loadingFranchise } = useFetch('/franchises/me');
   const [viewingAdmission, setViewingAdmission] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [previewDocId, setPreviewDocId] = useState(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: myFranchise } = await api.get('/franchises/me');
-        if (myFranchise) {
-          setFranchise(myFranchise);
-          const { data } = await api.get(`/admissions/franchise/${myFranchise.id}`);
-          setAdmissions(data);
-        }
-      } catch {}
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
+    if (franchise) {
+      setResourceUrl('admissions', `/admissions/franchise/${franchise.id}`);
+    }
+  }, [franchise]);
 
   useEffect(() => {
     if (viewingAdmission) {
@@ -46,54 +38,45 @@ const FranchiseAdmissions = () => {
     }
   }, [viewingAdmission]);
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  if (loadingFranchise) return <div className="loading-screen"><div className="spinner" /></div>;
+
+  const columns = [
+    { source: 'full_name', label: 'Name', sortable: true },
+    { source: 'email', label: 'Email', sortable: true },
+    { source: 'courses.name', label: 'Course' },
+    {
+      source: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (v) => (
+        <span className={`badge badge-${v === 'approved' ? 'success' : v === 'rejected' ? 'danger' : 'warning'}`}>
+          {v}
+        </span>
+      ),
+    },
+    { source: 'created_at', label: 'Date', sortable: true, render: (v) => (v ? format(new Date(v), 'PP') : '-') },
+  ];
 
   return (
     <div>
       <div className="page-header"><h1>Admissions</h1></div>
 
-      <div className="card table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Course</th>
-              <th>Status</th>
-              <th>Date</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {admissions.map(a => (
-              <tr key={a.id}>
-                <td>{a.full_name}</td>
-                <td>{a.email}</td>
-                <td>{a.courses?.name}</td>
-                <td>
-                  <span className={`badge badge-${a.status === 'approved' ? 'success' : a.status === 'rejected' ? 'danger' : 'warning'}`}>
-                    {a.status}
-                  </span>
-                </td>
-                <td>{format(new Date(a.created_at), 'PP')}</td>
-                <td>
-                  <button
-                    onClick={() => setViewingAdmission(a)}
-                    className="btn-icon"
-                    title="View details"
-                    style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                  >
-                    <Eye size={18} />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {admissions.length === 0 && <div className="empty-state"><p>No admissions found</p></div>}
-      </div>
+      <DataTable
+        resource="admissions"
+        columns={columns}
+        emptyMessage="No admissions found"
+        rowActions={(a) => (
+          <button
+            onClick={() => setViewingAdmission(a)}
+            className="btn-icon"
+            title="View details"
+            style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
+          >
+            <Eye size={18} />
+          </button>
+        )}
+      />
 
-      {/* View Modal */}
       {viewingAdmission && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -166,7 +149,6 @@ const FranchiseAdmissions = () => {
                 </div>
               )}
 
-              {/* Documents */}
               <div style={{ marginTop: '1rem' }}>
                 <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--gray-200)' }}>Documents & Images</h3>
                 {loadingDocs ? (

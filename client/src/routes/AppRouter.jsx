@@ -1,9 +1,11 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { CoreAdminContext } from 'ra-core';
 import { AuthProvider } from '../context/AuthContext';
 import { ConfigProvider } from '../context/ConfigContext';
 import { ProtectedRoute } from './ProtectedRoute';
 import { PublicLayout } from '../components/layout/PublicLayout';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
+import dataProvider from '../dataProvider';
 
 // Public Pages
 import Home from '../pages/public/Home';
@@ -55,6 +57,7 @@ const AppRouter = () => {
     <BrowserRouter>
       <ConfigProvider>
         <AuthProvider>
+          <CoreAdminContext dataProvider={dataProvider}>
           <Routes>
           {/* Public Routes */}
           <Route element={<PublicLayout />}>
@@ -121,6 +124,7 @@ const AppRouter = () => {
             <Route path="fees" element={<FranchiseFees />} />
           </Route>
           </Routes>
+          </CoreAdminContext>
         </AuthProvider>
       </ConfigProvider>
     </BrowserRouter>

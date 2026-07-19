@@ -1,0 +1,42 @@
+/* DataTable enhancements layered on top of the project's existing
+   .data-table / .table-container / .card design system. */
+
+.dt-wrapper {
+  width: 100%;
+}
+
+.dt-toolbar .dt-search-input:focus {
+  outline: none;
+  border-color: var(--primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.dt-toolbar .dt-filter-select:focus {
+  outline: none;
+  border-color: var(--primary, #6366f1);
+}
+
+.dt-bulk-bar {
+  animation: dt-slide-in 150ms ease-out;
+}
+
+@keyframes dt-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.dt-error {
+  padding: 1rem;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 8px;
+}
+
+.dt-pagination button:disabled {
+  opacity: 0.5;
+}
+
+.data-table th[style*="cursor: pointer"]:hover {
+  color: var(--primary, #6366f1);
+}

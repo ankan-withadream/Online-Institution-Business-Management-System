@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import crypto from 'crypto';
+import { applyListQuery, parseListParams, respondList } from '../utils/listQuery.js';
 
 const generateVerificationCode = () => `RES-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
@@ -62,15 +63,27 @@ export const getByStudent = async (req, res) => {
       }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('results')
-      .select('*, exams(name, exam_date, session_id), subjects(name, code, max_marks)')
-      .eq('student_id', req.params.studentId)
-      .eq('published', true)
-      .order('created_at', { ascending: false });
+    const listOpts = {
+      sortable: ['marks_obtained', 'created_at', 'published'],
+      searchable: [],
+      filterable: [],
+    };
 
-    if (error) throw error;
-    res.json(data);
+    let query = supabaseAdmin
+      .from('results')
+      .select(
+        '*, exams(name, exam_date, session_id), subjects(name, code, max_marks)',
+        { count: 'exact' }
+      )
+      .eq('student_id', req.params.studentId)
+      .eq('published', true);
+
+    ({ query } = applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get results error:', err);
     res.status(500).json({ error: 'Failed to fetch results' });

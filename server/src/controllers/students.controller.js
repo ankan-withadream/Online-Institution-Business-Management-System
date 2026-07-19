@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../config/supabase.js';
 import { getObjectStream } from '../utils/r2.js';
+import { applyListQuery, parseListParams, respondList } from '../utils/listQuery.js';
 
 const getPhotoContentType = (key) => {
   const lower = (key || '').toLowerCase();
@@ -66,18 +67,37 @@ export const getMe = async (req, res) => {
 
 export const getAll = async (req, res) => {
   try {
+    const listOpts = {
+      sortable: ['student_id_number', 'enrollment_date', 'created_at', 'status'],
+      searchable: ['student_id_number'],
+      filterable: ['status', 'course_id', 'session_id'],
+    };
+
     let query = supabaseAdmin
       .from('students')
-      .select('*, users(email, full_name), courses(name), sessions(session_type, start_date, end_date)')
-      .order('created_at', { ascending: false });
+      .select(
+        '*, users(email, full_name), courses(name), sessions(session_type, start_date, end_date)',
+        { count: 'exact' }
+      );
 
-    if (req.query.status) query = query.eq('status', req.query.status);
-    if (req.query.courseId) query = query.eq('course_id', req.query.courseId);
-    if (req.query.sessionId) query = query.eq('session_id', req.query.sessionId);
+    if (req.query.franchiseId) query = query.eq('franchise_id', req.query.franchiseId);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    res.json(data);
+    ({ query } = applyListQuery(query, req, listOpts));
+
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    // Nested-table text search: match users.full_name and users.email
+    if (req.query.q) {
+      const escaped = String(req.query.q).replace(/[%_]/g, (m) => '\\' + m);
+      const pat = `%${escaped}%`;
+      query = query.or(
+        `student_id_number.ilike.${pat},users.full_name.ilike.${pat},users.email.ilike.${pat}`
+      );
+    }
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get students error:', err);
     res.status(500).json({ error: 'Failed to fetch students' });

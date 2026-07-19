@@ -1,38 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Eye, X, Edit2 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import DataTable from '../../components/ui/DataTable';
+import { useFetch } from '../../hooks/useFetch';
+import { setResourceUrl } from '../../resourceUrlOverrides';
 
 const FranchiseStudents = () => {
-  const [franchise, setFranchise] = useState(null);
-  const [students, setStudents] = useState([]);
+  const { data: franchise, loading: loadingFranchise } = useFetch('/franchises/me');
   const [courses, setCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [viewingStudent, setViewingStudent] = useState(null);
   const [editingStudent, setEditingStudent] = useState(null);
   const [editFormData, setEditFormData] = useState({ course_id: '', session_id: '', status: 'active' });
   const [submitting, setSubmitting] = useState(false);
-
-  const fetchData = async () => {
-    try {
-      const { data: myFranchise } = await api.get('/franchises/me');
-      if (myFranchise) {
-        setFranchise(myFranchise);
-        const [studentsRes, coursesRes] = await Promise.all([
-          api.get(`/franchises/${myFranchise.id}/students`),
-          api.get(`/franchises/${myFranchise.id}/courses`)
-        ]);
-        setStudents(studentsRes.data);
-        setCourses(coursesRes.data);
-      }
-    } catch {}
-    setLoading(false);
-  };
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!franchise) return;
+    setResourceUrl('students', `/franchises/${franchise.id}/students`);
+    api.get(`/franchises/${franchise.id}/courses`).then(({ data }) => setCourses(data || []));
+  }, [franchise]);
 
   const handleEdit = (student) => {
     setEditingStudent(student);
@@ -50,9 +38,7 @@ const FranchiseStudents = () => {
       await api.put(`/students/${editingStudent.id}`, editFormData);
       toast.success('Student updated successfully');
       setEditingStudent(null);
-      
-      const { data: studentsRes } = await api.get(`/franchises/${franchise.id}/students`);
-      setStudents(studentsRes);
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update student');
     } finally {
@@ -60,68 +46,62 @@ const FranchiseStudents = () => {
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  if (loadingFranchise) return <div className="loading-screen"><div className="spinner" /></div>;
+
+  const columns = [
+    { source: 'student_id_number', label: 'ID', sortable: true, render: (v) => <code>{v}</code> },
+    { source: 'users.full_name', label: 'Name', sortable: true },
+    { source: 'users.email', label: 'Email', sortable: true },
+    { source: 'courses.name', label: 'Course' },
+    {
+      source: 'sessions.session_type',
+      label: 'Session',
+      render: (v, r) => v ? `${v} (${r.sessions?.start_date || 'TBA'})` : '-',
+    },
+    {
+      source: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (v) => (
+        <span className={`badge badge-${v === 'active' ? 'success' : v === 'graduated' ? 'info' : 'danger'}`}>
+          {v}
+        </span>
+      ),
+    },
+    { source: 'enrollment_date', label: 'Enrolled', sortable: true, render: (v) => (v ? format(new Date(v), 'PP') : '-') },
+  ];
 
   return (
     <div>
       <div className="page-header"><h1>Students</h1></div>
 
-      <div className="card table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Course</th>
-              <th>Session</th>
-              <th>Status</th>
-              <th>Enrolled</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map(s => (
-              <tr key={s.id}>
-                <td><code>{s.student_id_number}</code></td>
-                <td>{s.users?.full_name}</td>
-                <td>{s.users?.email}</td>
-                <td>{s.courses?.name}</td>
-                <td>{s.sessions?.session_type ? `${s.sessions.session_type} (${s.sessions.start_date || 'TBA'})` : '-'}</td>
-                <td>
-                  <span className={`badge badge-${s.status === 'active' ? 'success' : s.status === 'graduated' ? 'info' : 'danger'}`}>
-                    {s.status}
-                  </span>
-                </td>
-                <td>{s.enrollment_date && format(new Date(s.enrollment_date), 'PP')}</td>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                    <button
-                      onClick={() => setViewingStudent(s)}
-                      className="btn-icon"
-                      title="View details"
-                      style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                    >
-                      <Eye size={18} />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(s)}
-                      className="btn-icon"
-                      title="Edit student"
-                      style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {students.length === 0 && <div className="empty-state"><p>No students found</p></div>}
-      </div>
+      <DataTable
+        key={refreshKey}
+        resource="students"
+        columns={columns}
+        emptyMessage="No students found"
+        rowActions={(s) => (
+          <>
+            <button
+              onClick={() => setViewingStudent(s)}
+              className="btn-icon"
+              title="View details"
+              style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
+            >
+              <Eye size={18} />
+            </button>
+            <button
+              onClick={() => handleEdit(s)}
+              className="btn-icon"
+              title="Edit student"
+              style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
+            >
+              <Edit2 size={18} />
+            </button>
+          </>
+        )}
+      />
 
-      {/* View Modal */}
       {viewingStudent && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '560px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -219,7 +199,6 @@ const FranchiseStudents = () => {
         </div>
       )}
 
-      {/* Edit Modal */}
       {editingStudent && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '500px', padding: '2rem' }}>
@@ -229,7 +208,7 @@ const FranchiseStudents = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <form onSubmit={handleEditSubmit}>
               <div className="form-group">
                 <label className="form-label">Assign Course</label>
@@ -240,9 +219,7 @@ const FranchiseStudents = () => {
                 >
                   <option value="">Select Course</option>
                   {courses?.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name}
-                    </option>
+                    <option key={course.id} value={course.id}>{course.name}</option>
                   ))}
                 </select>
               </div>

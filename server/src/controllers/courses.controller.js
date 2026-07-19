@@ -1,23 +1,39 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { applyListQuery, parseListParams, respondList } from '../utils/listQuery.js';
 
-export const getAll = async (_req, res) => {
-
-  console.log('Get all courses request received');
+export const getAll = async (req, res) => {
   try {
-    console.log('Fetching courses from database...');
+    const listOpts = {
+      sortable: ['name', 'slug', 'fee', 'duration_months', 'created_at', 'is_active'],
+      searchable: ['name', 'slug', 'description'],
+      filterable: ['is_active'],
+    };
+
+    // Two modes: admin sees all (paginated), public sees only active (full list, no pagination).
+    const isAdmin = req.user && req.user.role === 'admin';
+
+    if (!isAdmin) {
+      let q = supabaseAdmin
+        .from('courses')
+        .select('*, subjects(*), sessions(*)')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      const { data, error } = await q;
+      if (error) throw error;
+      return res.json(data || []);
+    }
+
     let query = supabaseAdmin
       .from('courses')
-      .select('*, subjects(*), sessions(*)')
-      .order('created_at', { ascending: false });
+      .select('*, subjects(*), sessions(*)', { count: 'exact' });
 
-    if (!_req.user || _req.user.role !== 'admin') {
-      query = query.eq('is_active', true);
-    }
-    const { data, error } = await query;
-    // console.log('Fetched courses:', data);
+    ({ query } = applyListQuery(query, req, listOpts));
 
-    if (error) throw error;
-    res.json(data);
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get courses error:', err);
     res.status(500).json({ error: 'Failed to fetch courses' });

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { CreditCard, IndianRupee, History, QrCode, X } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../../services/api';
@@ -11,7 +11,6 @@ const StudentPayments = () => {
   const [payModal, setPayModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Payment form state
   const [paymentType, setPaymentType] = useState('full');
   const [customAmount, setCustomAmount] = useState('');
   const [transactionId, setTransactionId] = useState('');
@@ -26,14 +25,14 @@ const StudentPayments = () => {
         ]);
         setFees(feesRes.data);
 
-        // Fetch QR code (silently fail if not found)
         try {
           const qrRes = await api.get('/documents/entity/system/00000000-0000-0000-0000-000000000001');
           const qrDoc = qrRes.data?.find(d => d.document_type === 'payment_qr');
           if (qrDoc) setQrCodeUrl(qrDoc.previewUrl || qrDoc.downloadUrl);
-        } catch {}
+        } catch {
+          // Silently ignore — QR code is optional.
+        }
       } catch (err) {
-        console.error('Failed to load fee data', err);
         toast.error('Failed to load payment information');
       } finally {
         setLoading(false);
@@ -79,13 +78,11 @@ const StudentPayments = () => {
       toast.error('Transaction ID is required');
       return;
     }
-
     const payAmount = calculatePayAmount(fees.student.courseFee, fees.totalDue);
     if (payAmount <= 0) {
       toast.error('Payment amount must be greater than 0');
       return;
     }
-
     setSubmitting(true);
     try {
       await api.post('/fees/me', {
@@ -107,6 +104,23 @@ const StudentPayments = () => {
 
   if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
 
+  const columns = [
+    { source: 'created_at', label: 'Date', sortable: true, render: (v) => (v ? format(new Date(v), 'PP') : '-') },
+    { source: 'paid_amount', label: 'Amount', sortable: true, render: (v) => <strong>₹{Number(v).toLocaleString()}</strong> },
+    { source: 'payment_type', label: 'Type', render: (v) => <span style={{ textTransform: 'capitalize' }}>{v}</span> },
+    { source: 'payment_method', label: 'Method', render: (v) => <span style={{ textTransform: 'capitalize' }}>{(v || '').replace(/_/g, ' ')}</span> },
+    { source: 'transaction_id', label: 'Transaction ID', render: (v) => <code style={{ fontSize: '0.75rem' }}>{v}</code> },
+    {
+      source: 'status',
+      label: 'Status',
+      render: (v) => (
+        <span className={`badge badge-${v === 'completed' ? 'success' : v === 'failed' ? 'danger' : 'warning'}`}>
+          {v}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div>
       <div className="page-header">
@@ -114,7 +128,6 @@ const StudentPayments = () => {
         <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>View your fee details and make payments</p>
       </div>
 
-      {/* Course Info */}
       {fees?.student && (
         <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
           <div>
@@ -131,7 +144,6 @@ const StudentPayments = () => {
         </div>
       )}
 
-      {/* Summary Cards */}
       <div className="grid grid-3" style={{ marginBottom: '1.5rem' }}>
         <div className="stat-card">
           <div className="stat-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}><IndianRupee size={24} /></div>
@@ -150,53 +162,25 @@ const StudentPayments = () => {
         </div>
       </div>
 
-      {/* Pay Button */}
       <div style={{ marginBottom: '1.5rem' }}>
         <button className="btn btn-primary" onClick={openPayModal} disabled={fees?.totalDue <= 0}>
           <CreditCard size={18} /> Pay Now
         </button>
       </div>
 
-      {/* Payment History */}
-      <div className="card table-container">
-        <h3 style={{ fontSize: '1rem', fontWeight: 600, padding: '1rem 1.5rem', borderBottom: '1px solid var(--gray-200)', margin: 0 }}>
+      <div style={{ marginBottom: '0.75rem' }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0 }}>
           <History size={16} style={{ marginRight: '0.5rem', verticalAlign: 'middle' }} />
           Payment History
         </h3>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Type</th>
-              <th>Method</th>
-              <th>Transaction ID</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {fees?.payments?.map(p => (
-              <tr key={p.id}>
-                <td>{format(new Date(p.created_at), 'PP')}</td>
-                <td style={{ fontWeight: 500 }}>₹{Number(p.paid_amount).toLocaleString()}</td>
-                <td style={{ textTransform: 'capitalize' }}>{p.payment_type}</td>
-                <td style={{ textTransform: 'capitalize' }}>{p.payment_method?.replace(/_/g, ' ')}</td>
-                <td><code style={{ fontSize: '0.75rem' }}>{p.transaction_id}</code></td>
-                <td>
-                  <span className={`badge badge-${p.status === 'completed' ? 'success' : p.status === 'failed' ? 'danger' : 'warning'}`}>
-                    {p.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {(!fees?.payments || fees.payments.length === 0) && (
-          <div className="empty-state"><p>No payment records found.</p></div>
-        )}
       </div>
+      <DataTable
+        resource="payments-student"
+        columns={columns}
+        emptyMessage="No payment records found."
+        defaultSort={{ field: 'created_at', order: 'DESC' }}
+      />
 
-      {/* ──── Pay Modal ──── */}
       {payModal && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -207,23 +191,17 @@ const StudentPayments = () => {
               </button>
             </div>
 
-            {/* QR Code */}
             {qrCodeUrl && (
               <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '1.5rem', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--gray-200)' }}>
                 <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.75rem', textTransform: 'uppercase' }}>
                   <QrCode size={16} style={{ marginRight: '0.375rem', verticalAlign: 'middle' }} />
                   Scan to Pay
                 </p>
-                <img
-                  src={qrCodeUrl}
-                  alt="Payment QR Code"
-                  style={{ maxWidth: '220px', maxHeight: '220px', margin: '0 auto', borderRadius: '0.5rem', border: '2px solid var(--gray-300)' }}
-                />
+                <img src={qrCodeUrl} alt="Payment QR Code" style={{ maxWidth: '220px', maxHeight: '220px', margin: '0 auto', borderRadius: '0.5rem', border: '2px solid var(--gray-300)' }} />
                 <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.75rem' }}>After payment, enter the transaction details below</p>
               </div>
             )}
 
-            {/* Fee Summary */}
             {fees && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div style={{ background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
@@ -241,7 +219,6 @@ const StudentPayments = () => {
               </div>
             )}
 
-            {/* Payment Type */}
             <div className="form-group">
               <label className="form-label">Payment Amount</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem' }}>
@@ -267,19 +244,10 @@ const StudentPayments = () => {
             {paymentType === 'custom' && (
               <div className="form-group">
                 <label className="form-label">Custom Amount (₹)</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  min="1"
-                  max={fees?.totalDue || 0}
-                  value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
-                  placeholder="Enter amount"
-                />
+                <input className="form-input" type="number" min="1" max={fees?.totalDue || 0} value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="Enter amount" />
               </div>
             )}
 
-            {/* Amount Display */}
             {fees && (
               <div style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', textAlign: 'center' }}>
                 <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Amount to pay: </span>
@@ -303,22 +271,12 @@ const StudentPayments = () => {
 
             <div className="form-group">
               <label className="form-label">Transaction ID *</label>
-              <input
-                className="form-input"
-                value={transactionId}
-                onChange={(e) => setTransactionId(e.target.value)}
-                placeholder="Enter UPI/Bank transaction reference ID"
-              />
+              <input className="form-input" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="Enter UPI/Bank transaction reference ID" />
             </div>
 
             <div className="form-group">
               <label className="form-label">Remarks (Optional)</label>
-              <input
-                className="form-input"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Any additional notes"
-              />
+              <input className="form-input" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Any additional notes" />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
@@ -333,5 +291,6 @@ const StudentPayments = () => {
     </div>
   );
 };
+
 
 export default StudentPayments;

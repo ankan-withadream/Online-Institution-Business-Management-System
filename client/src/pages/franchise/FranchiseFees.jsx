@@ -1,76 +1,59 @@
 import { useState, useEffect, useMemo } from 'react';
-import { CreditCard, X, IndianRupee, History, Users } from 'lucide-react';
+import { CreditCard, X, IndianRupee, History } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
+import DataTable from '../../components/ui/DataTable';
+import { setResourceUrl } from '../../resourceUrlOverrides';
+import { useFetch } from '../../hooks/useFetch';
 
 const FranchiseFees = () => {
-  const [franchise, setFranchise] = useState(null);
+  const { data: franchise, loading: loadingFranchise } = useFetch('/franchises/me');
   const [courses, setCourses] = useState([]);
   const [students, setStudents] = useState([]);
   const [feePayments, setFeePayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedSession, setSelectedSession] = useState('');
-  const [payModal, setPayModal] = useState(null); // { student, course } or 'bulk'
-  const [historyModal, setHistoryModal] = useState(null); // studentId
+  const [payModal, setPayModal] = useState(null);
+  const [historyModal, setHistoryModal] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-
-  // QR code document
+  const [refreshKey, setRefreshKey] = useState(0);
   const [qrCodeUrl, setQrCodeUrl] = useState(null);
 
-  // Pay form state
-  const [paymentType, setPaymentType] = useState('full'); // full, half, quarter, custom
+  const [paymentType, setPaymentType] = useState('full');
   const [customAmount, setCustomAmount] = useState('');
   const [transactionId, setTransactionId] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('upi');
   const [remarks, setRemarks] = useState('');
 
   useEffect(() => {
+    if (!franchise) return;
+    setResourceUrl('students', `/franchises/${franchise.id}/students`);
     const fetchData = async () => {
       try {
-        const { data: myFranchise } = await api.get('/franchises/me');
-        if (myFranchise) {
-          setFranchise(myFranchise);
-          const [coursesRes, studentsRes, feesRes] = await Promise.all([
-            api.get(`/franchises/${myFranchise.id}/courses`),
-            api.get(`/franchises/${myFranchise.id}/students`),
-            api.get(`/fees/franchise/${myFranchise.id}`),
-          ]);
-          setCourses(coursesRes.data);
-          setStudents(studentsRes.data);
-          setFeePayments(feesRes.data);
-        }
+        const [coursesRes, studentsRes, feesRes] = await Promise.all([
+          api.get(`/franchises/${franchise.id}/courses`),
+          api.get(`/franchises/${franchise.id}/students`),
+          api.get(`/fees/franchise/${franchise.id}`),
+        ]);
+        setCourses(coursesRes.data);
+        setStudents(studentsRes.data?.data || studentsRes.data || []);
+        setFeePayments(feesRes.data?.data || feesRes.data || []);
+        setLoading(false);
+      } catch {
+        setLoading(false);
+      }
 
-        // Fetch payment QR code (system document)
-        try {
-          const qrRes = await api.get('/documents/entity/system/00000000-0000-0000-0000-000000000001');
-          const qrDoc = qrRes.data?.find(d => d.document_type === 'payment_qr');
-          if (qrDoc) setQrCodeUrl(qrDoc.previewUrl || qrDoc.downloadUrl);
-        } catch {}
+      try {
+        const qrRes = await api.get('/documents/entity/system/00000000-0000-0000-0000-000000000001');
+        const qrDoc = qrRes.data?.find(d => d.document_type === 'payment_qr');
+        if (qrDoc) setQrCodeUrl(qrDoc.previewUrl || qrDoc.downloadUrl);
       } catch {}
-      setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [franchise, refreshKey]);
 
-  const refreshFees = async () => {
-    if (!franchise) return;
-    try {
-      const { data } = await api.get(`/fees/franchise/${franchise.id}`);
-      setFeePayments(data);
-    } catch {}
-  };
-
-  // Filter students by selected course and session
-  const filteredStudents = useMemo(() => {
-    let result = students;
-    if (selectedCourse) result = result.filter(s => s.course_id === selectedCourse);
-    if (selectedSession) result = result.filter(s => s.session_id === selectedSession);
-    return result;
-  }, [students, selectedCourse, selectedSession]);
-
-  // Calculate per-student fee summary
   const getStudentFeeSummary = (studentId, courseId) => {
     const course = courses.find(c => c.id === courseId);
     const courseFee = course?.fee || 0;
@@ -80,15 +63,12 @@ const FranchiseFees = () => {
     return { courseFee, totalPaid, totalDue: Math.max(0, totalDue), payments };
   };
 
-  // Course-level aggregate summary
   const courseSummary = useMemo(() => {
     if (!selectedCourse) return null;
     const course = courses.find(c => c.id === selectedCourse);
     if (!course) return null;
-
     let courseStudents = students.filter(s => s.course_id === selectedCourse);
     if (selectedSession) courseStudents = courseStudents.filter(s => s.session_id === selectedSession);
-    
     let totalAmount = 0, totalPaid = 0, totalDue = 0;
     courseStudents.forEach(s => {
       const summary = getStudentFeeSummary(s.id, selectedCourse);
@@ -99,7 +79,6 @@ const FranchiseFees = () => {
     return { courseName: course.name, courseFee: course.fee, studentCount: courseStudents.length, totalAmount, totalPaid, totalDue };
   }, [selectedCourse, selectedSession, courses, students, feePayments]);
 
-  // Calculate payment amount based on type
   const calculatePayAmount = (courseFee, dueAmount) => {
     switch (paymentType) {
       case 'full': return dueAmount;
@@ -110,7 +89,6 @@ const FranchiseFees = () => {
     }
   };
 
-  // For bulk: percentage applies to the combined total due across all students
   const calculateBulkPayAmount = (totalDue) => {
     switch (paymentType) {
       case 'full': return totalDue;
@@ -121,20 +99,13 @@ const FranchiseFees = () => {
     }
   };
 
-  // Distribute total amount equally among students, capping each at their individual due
   const distributeEvenly = (totalAmount, studentsWithDues) => {
     let remaining = totalAmount;
-    const result = studentsWithDues.map(s => ({
-      ...s,
-      payAmount: 0,
-      remainingDue: s.dueAmount,
-    }));
-
+    const result = studentsWithDues.map(s => ({ ...s, payAmount: 0, remainingDue: s.dueAmount }));
     while (remaining > 0) {
       const batch = result.filter(s => s.remainingDue > 0);
       if (batch.length === 0) break;
       const perStudent = Math.floor(remaining / batch.length);
-
       if (perStudent <= 0) {
         for (const s of batch) {
           if (remaining <= 0) break;
@@ -145,7 +116,6 @@ const FranchiseFees = () => {
         }
         break;
       }
-
       for (const s of batch) {
         const add = Math.min(perStudent, s.remainingDue);
         s.payAmount += add;
@@ -153,7 +123,6 @@ const FranchiseFees = () => {
         remaining -= add;
       }
     }
-
     return result.map(s => ({
       studentId: s.studentId,
       courseId: s.courseId,
@@ -203,25 +172,21 @@ const FranchiseFees = () => {
       toast.error('Transaction ID is required');
       return;
     }
-
     setSubmitting(true);
     try {
       if (payModal.bulk) {
-        // Bulk payment: total amount from combined due, then split equally
         const totalPayAmount = calculateBulkPayAmount(payModal.totalBulkDue);
         if (totalPayAmount <= 0) {
           toast.error('Payment amount must be greater than 0');
           setSubmitting(false);
           return;
         }
-
         const studentsWithDues = payModal.students.map(s => ({
           studentId: s.id,
           courseId: s.course_id,
           courseFee: s.courseFee,
           dueAmount: s.totalDue,
         }));
-
         const distributed = distributeEvenly(totalPayAmount, studentsWithDues);
         const payments = distributed
           .filter(p => p.payAmount > 0)
@@ -237,11 +202,9 @@ const FranchiseFees = () => {
             paymentType,
             remarks: remarks.trim() || null,
           }));
-
         await api.post('/fees/bulk', { payments });
         toast.success(`${payments.length} payments recorded`);
       } else {
-        // Individual payment
         const { student, summary } = payModal;
         const payAmount = calculatePayAmount(summary.courseFee, summary.totalDue);
         if (payAmount <= 0) {
@@ -249,7 +212,6 @@ const FranchiseFees = () => {
           setSubmitting(false);
           return;
         }
-
         await api.post('/fees', {
           studentId: student.id,
           courseId: student.course_id,
@@ -264,9 +226,8 @@ const FranchiseFees = () => {
         });
         toast.success('Payment recorded');
       }
-
       setPayModal(null);
-      await refreshFees();
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Payment failed');
     } finally {
@@ -274,11 +235,73 @@ const FranchiseFees = () => {
     }
   };
 
-  const openHistoryModal = (studentId) => {
-    setHistoryModal(studentId);
-  };
+  const filteredStudents = useMemo(() => {
+    let result = students;
+    if (selectedCourse) result = result.filter(s => s.course_id === selectedCourse);
+    if (selectedSession) result = result.filter(s => s.session_id === selectedSession);
+    return result;
+  }, [students, selectedCourse, selectedSession]);
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  const columns = [
+    { source: 'users.full_name', label: 'Name', sortable: true },
+    { source: 'courses.name', label: 'Course' },
+    {
+      source: 'status',
+      label: 'Status',
+      render: (v) => (
+        <span className={`badge badge-${v === 'active' ? 'success' : v === 'graduated' ? 'info' : 'danger'}`}>
+          {v}
+        </span>
+      ),
+    },
+    {
+      source: 'course_fee',
+      label: 'Course Fee',
+      render: (_, record, extra) => {
+        if (!extra) return '-';
+        const s = extra.getStudentFeeSummary(record.id, record.course_id);
+        return `₹${s.courseFee.toLocaleString()}`;
+      },
+    },
+    {
+      source: 'paid_amount',
+      label: 'Paid',
+      render: (_, record, extra) => {
+        if (!extra) return '-';
+        const s = extra.getStudentFeeSummary(record.id, record.course_id);
+        return <span style={{ color: '#22c55e', fontWeight: 500 }}>₹{s.totalPaid.toLocaleString()}</span>;
+      },
+    },
+    {
+      source: 'due_amount',
+      label: 'Due',
+      render: (_, record, extra) => {
+        if (!extra) return '-';
+        const s = extra.getStudentFeeSummary(record.id, record.course_id);
+        return (
+          <span style={{ color: s.totalDue > 0 ? '#ef4444' : '#22c55e', fontWeight: 500 }}>
+            ₹{s.totalDue.toLocaleString()}
+          </span>
+        );
+      },
+    },
+    {
+      source: 'payment_status',
+      label: 'Payment Status',
+      render: (_, record, extra) => {
+        if (!extra) return '-';
+        const s = extra.getStudentFeeSummary(record.id, record.course_id);
+        const isPaid = s.totalDue <= 0;
+        return (
+          <span className={`badge badge-${isPaid ? 'success' : s.totalPaid > 0 ? 'warning' : 'danger'}`}>
+            {isPaid ? 'Paid' : s.totalPaid > 0 ? 'Partial' : 'Unpaid'}
+          </span>
+        );
+      },
+    },
+  ];
+
+  if (loadingFranchise || loading) return <div className="loading-screen"><div className="spinner" /></div>;
 
   return (
     <div>
@@ -287,25 +310,16 @@ const FranchiseFees = () => {
         <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>Manage student fee payments</p>
       </div>
 
-      {/* Course Filter + Bulk Pay */}
       <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="form-group" style={{ marginBottom: 0, minWidth: '250px' }}>
-          <select
-            className="form-select"
-            value={selectedCourse}
-            onChange={(e) => { setSelectedCourse(e.target.value); setSelectedSession(''); }}
-          >
+          <select className="form-select" value={selectedCourse} onChange={(e) => { setSelectedCourse(e.target.value); setSelectedSession(''); }}>
             <option value="">All Courses</option>
             {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         {selectedCourse && (
           <div className="form-group" style={{ marginBottom: 0, minWidth: '250px' }}>
-            <select
-              className="form-select"
-              value={selectedSession}
-              onChange={(e) => setSelectedSession(e.target.value)}
-            >
+            <select className="form-select" value={selectedSession} onChange={(e) => setSelectedSession(e.target.value)}>
               <option value="">All Sessions</option>
               {courses.find(c => c.id === selectedCourse)?.sessions?.map(s => (
                 <option key={s.id} value={s.id}>
@@ -322,13 +336,12 @@ const FranchiseFees = () => {
         )}
       </div>
 
-      {/* Course Summary Cards */}
       {courseSummary && (
         <div className="grid grid-3" style={{ marginBottom: '1.5rem' }}>
           <div className="stat-card">
             <div className="stat-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}><IndianRupee size={24} /></div>
             <div className="stat-value">₹{courseSummary.totalAmount.toLocaleString()}</div>
-            <div className="stat-label">Total Amount ({courseSummary.studentCount} students × ₹{courseSummary.courseFee?.toLocaleString()})</div>
+            <div className="stat-label">Total Amount ({courseSummary.studentCount} × ₹{courseSummary.courseFee?.toLocaleString()})</div>
           </div>
           <div className="stat-card">
             <div className="stat-icon" style={{ background: '#f0fdf4', color: '#22c55e' }}><CreditCard size={24} /></div>
@@ -343,73 +356,32 @@ const FranchiseFees = () => {
         </div>
       )}
 
-      {/* Students Table */}
-      <div className="card table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Course</th>
-              <th>Status</th>
-              <th>Course Fee</th>
-              <th>Paid</th>
-              <th>Due</th>
-              <th>Payment Status</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.map(s => {
-              const summary = getStudentFeeSummary(s.id, s.course_id);
-              const isPaid = summary.totalDue <= 0;
-              return (
-                <tr key={s.id}>
-                  <td>{s.users?.full_name}</td>
-                  <td>{s.courses?.name}</td>
-                  <td>
-                    <span className={`badge badge-${s.status === 'active' ? 'success' : s.status === 'graduated' ? 'info' : 'danger'}`}>
-                      {s.status}
-                    </span>
-                  </td>
-                  <td>₹{summary.courseFee.toLocaleString()}</td>
-                  <td style={{ color: '#22c55e', fontWeight: 500 }}>₹{summary.totalPaid.toLocaleString()}</td>
-                  <td style={{ color: summary.totalDue > 0 ? '#ef4444' : '#22c55e', fontWeight: 500 }}>
-                    ₹{summary.totalDue.toLocaleString()}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${isPaid ? 'success' : summary.totalPaid > 0 ? 'warning' : 'danger'}`}>
-                      {isPaid ? 'Paid' : summary.totalPaid > 0 ? 'Partial' : 'Unpaid'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => openHistoryModal(s.id)}
-                        className="btn-icon"
-                        title="Payment history"
-                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <History size={18} />
-                      </button>
-                      {!isPaid && (
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => openPayModal(s)}
-                        >
-                          Pay Fees
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {filteredStudents.length === 0 && <div className="empty-state"><p>No students found</p></div>}
-      </div>
+      <DataTable
+        key={refreshKey}
+        resource="students"
+        columns={columns}
+        extraData={{ getStudentFeeSummary }}
+        emptyMessage="No students found"
+        showSearch={false}
+        showPagination={false}
+        rowActions={(s) => {
+          const summary = getStudentFeeSummary(s.id, s.course_id);
+          const isPaid = summary.totalDue <= 0;
+          return (
+            <>
+              <button onClick={() => setHistoryModal(s.id)} className="btn-icon" title="Payment history" style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}>
+                <History size={18} />
+              </button>
+              {!isPaid && (
+                <button className="btn btn-primary btn-sm" onClick={() => openPayModal(s)}>
+                  Pay Fees
+                </button>
+              )}
+            </>
+          );
+        }}
+      />
 
-      {/* ──── Pay Fees Modal ──── */}
       {payModal && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -422,22 +394,15 @@ const FranchiseFees = () => {
               </button>
             </div>
 
-            {/* QR Code Section */}
             {qrCodeUrl && (
               <div style={{ textAlign: 'center', marginBottom: '1.5rem', padding: '1.5rem', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)', border: '1px solid var(--gray-200)' }}>
                 <p style={{ fontSize: '0.875rem', fontWeight: 600, color: '#6b7280', marginBottom: '0.75rem', textTransform: 'uppercase' }}>Scan QR Code to Pay</p>
-                <img
-                  src={qrCodeUrl}
-                  alt="Payment QR Code"
-                  style={{ maxWidth: '220px', maxHeight: '220px', margin: '0 auto', borderRadius: '0.5rem', border: '2px solid var(--gray-300)' }}
-                />
+                <img src={qrCodeUrl} alt="Payment QR Code" style={{ maxWidth: '220px', maxHeight: '220px', margin: '0 auto', borderRadius: '0.5rem', border: '2px solid var(--gray-300)' }} />
                 <p style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '0.75rem' }}>After payment, enter the transaction details below</p>
               </div>
             )}
 
-            {/* Fee Info */}
             {payModal.bulk ? (
-              /* Bulk: combined totals across all selected students */
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div style={{ background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
                   <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Fee</div>
@@ -454,7 +419,6 @@ const FranchiseFees = () => {
                 </div>
               </div>
             ) : payModal.summary && (
-              /* Individual student fee summary */
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                 <div style={{ background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
                   <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Total Fee</div>
@@ -471,7 +435,6 @@ const FranchiseFees = () => {
               </div>
             )}
 
-            {/* Payment Type Selection */}
             <div className="form-group">
               <label className="form-label">Payment Amount</label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '0.5rem' }}>
@@ -481,13 +444,7 @@ const FranchiseFees = () => {
                   { value: 'quarter', label: '25%' },
                   { value: 'custom', label: 'Custom' },
                 ].map(opt => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    className={`btn ${paymentType === opt.value ? 'btn-primary' : 'btn-secondary'} btn-sm`}
-                    onClick={() => setPaymentType(opt.value)}
-                    style={{ fontSize: '0.875rem' }}
-                  >
+                  <button key={opt.value} type="button" className={`btn ${paymentType === opt.value ? 'btn-primary' : 'btn-secondary'} btn-sm`} onClick={() => setPaymentType(opt.value)} style={{ fontSize: '0.875rem' }}>
                     {opt.label}
                   </button>
                 ))}
@@ -497,18 +454,10 @@ const FranchiseFees = () => {
             {paymentType === 'custom' && (
               <div className="form-group">
                 <label className="form-label">Custom Amount (₹)</label>
-                <input
-                  className="form-input"
-                  type="number"
-                  min="1"
-                  value={customAmount}
-                  onChange={(e) => setCustomAmount(e.target.value)}
-                  placeholder="Enter amount"
-                />
+                <input className="form-input" type="number" min="1" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="Enter amount" />
               </div>
             )}
 
-            {/* Calculated amount display — individual & bulk */}
             {payModal.bulk ? (
               <div style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1rem', textAlign: 'center' }}>
                 <span style={{ fontSize: '0.875rem', color: '#6b7280' }}>Amount to pay: </span>
@@ -542,22 +491,12 @@ const FranchiseFees = () => {
 
             <div className="form-group">
               <label className="form-label">Transaction ID *</label>
-              <input
-                className="form-input"
-                value={transactionId}
-                onChange={(e) => setTransactionId(e.target.value)}
-                placeholder="Enter UPI/Bank transaction reference ID"
-              />
+              <input className="form-input" value={transactionId} onChange={(e) => setTransactionId(e.target.value)} placeholder="Enter UPI/Bank transaction reference ID" />
             </div>
 
             <div className="form-group">
               <label className="form-label">Remarks (Optional)</label>
-              <input
-                className="form-input"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                placeholder="Any additional notes"
-              />
+              <input className="form-input" value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Any additional notes" />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
@@ -570,7 +509,6 @@ const FranchiseFees = () => {
         </div>
       )}
 
-      {/* ──── Payment History Modal ──── */}
       {historyModal && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '650px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -584,7 +522,6 @@ const FranchiseFees = () => {
               const student = students.find(s => s.id === historyModal);
               const payments = feePayments.filter(p => p.student_id === historyModal);
               const summary = student ? getStudentFeeSummary(student.id, student.course_id) : null;
-
               return (
                 <>
                   {student && (
@@ -593,7 +530,6 @@ const FranchiseFees = () => {
                       <div style={{ color: '#6b7280', fontSize: '0.875rem' }}>{student.courses?.name}</div>
                     </div>
                   )}
-
                   {summary && (
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
                       <div style={{ background: 'var(--gray-50)', padding: '0.75rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
@@ -610,18 +546,12 @@ const FranchiseFees = () => {
                       </div>
                     </div>
                   )}
-
                   {payments.length > 0 ? (
                     <div className="table-container">
                       <table className="data-table">
                         <thead>
                           <tr>
-                            <th>Date</th>
-                            <th>Amount</th>
-                            <th>Type</th>
-                            <th>Method</th>
-                            <th>Transaction ID</th>
-                            <th>Status</th>
+                            <th>Date</th><th>Amount</th><th>Type</th><th>Method</th><th>Transaction ID</th><th>Status</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -648,9 +578,6 @@ const FranchiseFees = () => {
                 </>
               );
             })()}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
-              <button onClick={() => setHistoryModal(null)} className="btn btn-secondary">Close</button>
-            </div>
           </div>
         </div>
       )}

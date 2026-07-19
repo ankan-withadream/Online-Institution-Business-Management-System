@@ -10,6 +10,7 @@ router.get('/verify/:code', certificatesController.verify);
 
 // Admin
 router.post('/', authenticate, authorize('admin'), certificatesController.create);
+router.get('/', authenticate, authorize('admin'), certificatesController.getAll);
 
 // Student / Admin
 router.get('/student/:studentId', authenticate, authorize('admin', 'student'), certificatesController.getByStudent);

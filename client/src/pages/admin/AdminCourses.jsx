@@ -1,15 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Plus, Edit2, Trash2, X, BookOpen, Eye } from 'lucide-react';
 import { useFetch } from '../../hooks/useFetch';
 import toast from 'react-hot-toast';
 import api from '../../services/api';
+import DataTable from '../../components/ui/DataTable';
+import { useListContext } from 'ra-core';
+import { useBulkActions } from '../../hooks/useBulkActions';
 
 const AdminCourses = () => {
-  const { data: courses, loading, error, refetch } = useFetch('/courses/admin/all');
+  const { refetch } = useFetch('/courses/admin/all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState(null);
   const [viewingCourse, setViewingCourse] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -77,7 +81,6 @@ const AdminCourses = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-
     try {
       if (editingCourse) {
         await api.put(`/courses/${editingCourse.id}`, formData);
@@ -87,6 +90,7 @@ const AdminCourses = () => {
         toast.success('Course created successfully');
       }
       handleCloseModal();
+      setRefreshKey((k) => k + 1);
       refetch();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to save course');
@@ -97,18 +101,38 @@ const AdminCourses = () => {
 
   const handleDelete = async (id) => {
     if (!window.confirm('Are you sure you want to delete this course?')) return;
-
     try {
       await api.delete(`/courses/${id}`);
       toast.success('Course deleted successfully');
+      setRefreshKey((k) => k + 1);
       refetch();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to delete course');
     }
   };
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
-  if (error) return <div className="error-screen">{error}</div>;
+  const columns = [
+    {
+      source: 'name',
+      label: 'Name',
+      sortable: true,
+      render: (v, r) => (
+        <>
+          <div style={{ fontWeight: 500 }}>{v}</div>
+          {r.description && <div style={{ fontSize: '0.875rem', color: '#6b7280', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.description}</div>}
+        </>
+      ),
+    },
+    { source: 'slug', label: 'Slug', sortable: true, render: (v) => <code>{v}</code> },
+    { source: 'duration_months', label: 'Duration (Months)', sortable: true },
+    { source: 'fee', label: 'Fee', sortable: true, render: (v) => `₹${Number(v || 0).toLocaleString()}` },
+    {
+      source: 'is_active',
+      label: 'Status',
+      sortable: true,
+      render: (v) => <span className={`badge badge-${v ? 'success' : 'danger'}`}>{v ? 'Active' : 'Inactive'}</span>,
+    },
+  ];
 
   return (
     <div className="admin-courses">
@@ -122,77 +146,40 @@ const AdminCourses = () => {
         </button>
       </div>
 
-      <div className="card table-container">
-        {(!courses || courses.length === 0) ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-            <BookOpen size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-            <p>No courses found. Create one to get started.</p>
-          </div>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Slug</th>
-                <th>Duration (Months)</th>
-                <th>Fee</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {courses.map(course => (
-                <tr key={course.id}>
-                  <td>
-                    <div style={{ fontWeight: 500 }}>{course.name}</div>
-                    {course.description && (
-                      <div style={{ fontSize: '0.875rem', color: '#6b7280', maxWidth: '300px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {course.description}
-                      </div>
-                    )}
-                  </td>
-                  <td><code>{course.slug}</code></td>
-                  <td>{course.duration_months}</td>
-                  <td>₹{course.fee?.toLocaleString()}</td>
-                  <td>
-                    <span className={`badge badge-${course.is_active ? 'success' : 'danger'}`}>
-                      {course.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => setViewingCourse(course)}
-                        className="btn-icon"
-                        title="View course"
-                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleOpenModal(course)}
-                        className="btn-icon"
-                        title="Edit course"
-                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(course.id)}
-                        className="btn-icon"
-                        title="Delete course"
-                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <DataTable
+        key={refreshKey}
+        resource="courses"
+        columns={columns}
+        emptyMessage="No courses found. Create one to get started."
+        filters={[
+          {
+            source: 'is_active',
+            label: 'Status',
+            options: [
+              { value: 'true', label: 'Active' },
+              { value: 'false', label: 'Inactive' },
+            ],
+          },
+        ]}
+        bulkActions={
+          <CourseBulkActions
+            onAfterDelete={() => setRefreshKey((k) => k + 1)}
+          />
+        }
+        rowActions={(course) => (
+          <>
+            <button onClick={() => setViewingCourse(course)} className="btn-icon" title="View course" style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}>
+              <Eye size={18} />
+            </button>
+            <button onClick={() => handleOpenModal(course)} className="btn-icon" title="Edit course" style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}>
+              <Edit2 size={18} />
+            </button>
+            <button onClick={() => handleDelete(course.id)} className="btn-icon" title="Delete course" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.25rem' }}>
+              <Trash2 size={18} />
+            </button>
+          </>
         )}
-      </div>
+      />
 
       {isModalOpen && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
@@ -201,10 +188,7 @@ const AdminCourses = () => {
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>
                 {editingCourse ? 'Edit Course' : 'Add New Course'}
               </h2>
-              <button
-                onClick={handleCloseModal}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
-              >
+              <button onClick={handleCloseModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
                 <X size={20} />
               </button>
             </div>
@@ -213,129 +197,54 @@ const AdminCourses = () => {
               <div className="grid grid-2">
                 <div className="form-group">
                   <label className="form-label">Course Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={handleNameChange}
-                    className="form-input"
-                    placeholder="e.g. Advanced Web Development"
-                  />
+                  <input type="text" required value={formData.name} onChange={handleNameChange} className="form-input" placeholder="e.g. Advanced Web Development" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Slug</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    className="form-input"
-                    placeholder="e.g. advanced-web-development"
-                  />
+                  <input type="text" required value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value })} className="form-input" placeholder="e.g. advanced-web-development" />
                 </div>
               </div>
 
               <div className="form-group">
                 <label className="form-label">Description</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="form-textarea"
-                  rows="3"
-                  placeholder="Course description..."
-                />
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="form-textarea" rows="3" placeholder="Course description..." />
               </div>
 
               <div className="grid grid-2">
                 <div className="form-group">
                   <label className="form-label">Duration (Months)</label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={formData.durationMonths}
-                    onChange={(e) => setFormData({ ...formData, durationMonths: parseInt(e.target.value) })}
-                    className="form-input"
-                  />
+                  <input type="number" min="1" required value={formData.durationMonths} onChange={(e) => setFormData({ ...formData, durationMonths: parseInt(e.target.value) })} className="form-input" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Fee (₹)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    required
-                    value={formData.fee}
-                    onChange={(e) => setFormData({ ...formData, fee: parseFloat(e.target.value) })}
-                    className="form-input"
-                  />
+                  <input type="number" min="0" required value={formData.fee} onChange={(e) => setFormData({ ...formData, fee: parseFloat(e.target.value) })} className="form-input" />
                 </div>
               </div>
 
               <div className="card" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Sessions</h3>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, sessions: [...prev.sessions, { sessionType: 'Normal', startDate: '', endDate: '' }] }))}
-                    className="btn btn-secondary btn-sm"
-                  >
+                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, sessions: [...prev.sessions, { sessionType: 'Normal', startDate: '', endDate: '' }] }))} className="btn btn-secondary btn-sm">
                     <Plus size={16} /> Add Session
                   </button>
                 </div>
-
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {formData.sessions.map((session, index) => (
                     <div key={index} style={{ background: 'var(--gray-50)', padding: '1rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--gray-200)', position: 'relative', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-                        <select
-                          required
-                          value={session.sessionType || ''}
-                          onChange={(e) => {
-                            const newSessions = [...formData.sessions];
-                            newSessions[index].sessionType = e.target.value;
-                            setFormData({ ...formData, sessions: newSessions });
-                          }}
-                          className="form-select"
-                        >
+                        <select required value={session.sessionType || ''} onChange={(e) => { const ns = [...formData.sessions]; ns[index].sessionType = e.target.value; setFormData({ ...formData, sessions: ns }); }} className="form-select">
                           <option value="Day">Day</option>
                           <option value="Night">Night</option>
                           <option value="Normal">Normal</option>
                         </select>
-                        <input
-                          type="date"
-                          value={session.startDate || ''}
-                          onChange={(e) => {
-                            const newSessions = [...formData.sessions];
-                            newSessions[index].startDate = e.target.value;
-                            setFormData({ ...formData, sessions: newSessions });
-                          }}
-                          className="form-input"
-                          title="Start Date"
-                        />
-                        <input
-                          type="date"
-                          value={session.endDate || ''}
-                          onChange={(e) => {
-                            const newSessions = [...formData.sessions];
-                            newSessions[index].endDate = e.target.value;
-                            setFormData({ ...formData, sessions: newSessions });
-                          }}
-                          className="form-input"
-                          title="End Date"
-                        />
+                        <input type="date" value={session.startDate || ''} onChange={(e) => { const ns = [...formData.sessions]; ns[index].startDate = e.target.value; setFormData({ ...formData, sessions: ns }); }} className="form-input" title="Start Date" />
+                        <input type="date" value={session.endDate || ''} onChange={(e) => { const ns = [...formData.sessions]; ns[index].endDate = e.target.value; setFormData({ ...formData, sessions: ns }); }} className="form-input" title="End Date" />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, sessions: prev.sessions.filter((_, i) => i !== index) }))}
-                        className="btn-icon"
-                        style={{ color: 'var(--danger-500)', padding: '0.5rem', background: 'none', border: 'none', cursor: 'pointer' }}
-                        title="Remove Session"
-                      >
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, sessions: prev.sessions.filter((_, i) => i !== index) }))} className="btn-icon" style={{ color: 'var(--danger-500)', padding: '0.5rem', background: 'none', border: 'none', cursor: 'pointer' }} title="Remove Session">
                         <Trash2 size={18} />
                       </button>
                     </div>
                   ))}
-
                   {formData.sessions.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '1.5rem 0', color: 'var(--gray-500)', background: 'var(--gray-50)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--gray-300)' }}>
                       <p style={{ fontSize: '0.875rem' }}>No sessions added. Add a session to assign students.</p>
@@ -347,109 +256,44 @@ const AdminCourses = () => {
               <div className="card" style={{ marginTop: '1.5rem', marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Subjects</h3>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100, semester: 1 }] }))}
-                    className="btn btn-secondary btn-sm"
-                  >
+                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100, semester: 1 }] }))} className="btn btn-secondary btn-sm">
                     <Plus size={16} /> Add Subject
                   </button>
                 </div>
-
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {formData.subjects.map((subject, index) => (
                     <div key={index} style={{ background: 'var(--gray-50)', padding: '1.5rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--gray-200)', position: 'relative' }}>
-                      <button
-                        type="button"
-                        onClick={() => setFormData(prev => ({ ...prev, subjects: prev.subjects.filter((_, i) => i !== index) }))}
-                        style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--danger-500)', cursor: 'pointer', padding: '0.25rem' }}
-                        title="Remove Subject"
-                      >
+                      <button type="button" onClick={() => setFormData(prev => ({ ...prev, subjects: prev.subjects.filter((_, i) => i !== index) }))} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--danger-500)', cursor: 'pointer', padding: '0.25rem' }} title="Remove Subject">
                         <Trash2 size={18} />
                       </button>
 
                       <div className="grid grid-3">
                         <div className="form-group" style={{ gridColumn: 'span 2' }}>
                           <label className="form-label">Subject Name</label>
-                          <input
-                            type="text"
-                            required
-                            value={subject.name}
-                            onChange={(e) => {
-                              const newSubjects = [...formData.subjects];
-                              newSubjects[index].name = e.target.value;
-                              setFormData({ ...formData, subjects: newSubjects });
-                            }}
-                            className="form-input"
-                            placeholder="e.g. Mathematics"
-                          />
+                          <input type="text" required value={subject.name} onChange={(e) => { const ns = [...formData.subjects]; ns[index].name = e.target.value; setFormData({ ...formData, subjects: ns }); }} className="form-input" placeholder="e.g. Mathematics" />
                         </div>
                         <div className="form-group">
                           <label className="form-label">Code</label>
-                          <input
-                            type="text"
-                            required
-                            value={subject.code}
-                            onChange={(e) => {
-                              const newSubjects = [...formData.subjects];
-                              newSubjects[index].code = e.target.value;
-                              setFormData({ ...formData, subjects: newSubjects });
-                            }}
-                            className="form-input"
-                            placeholder="e.g. MAT101"
-                          />
+                          <input type="text" required value={subject.code} onChange={(e) => { const ns = [...formData.subjects]; ns[index].code = e.target.value; setFormData({ ...formData, subjects: ns }); }} className="form-input" placeholder="e.g. MAT101" />
                         </div>
                       </div>
 
                       <div className="grid grid-3" style={{ marginBottom: 0 }}>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label">Description</label>
-                          <input
-                            type="text"
-                            value={subject.description}
-                            onChange={(e) => {
-                              const newSubjects = [...formData.subjects];
-                              newSubjects[index].description = e.target.value;
-                              setFormData({ ...formData, subjects: newSubjects });
-                            }}
-                            className="form-input"
-                            placeholder="Optional description"
-                          />
+                          <input type="text" value={subject.description} onChange={(e) => { const ns = [...formData.subjects]; ns[index].description = e.target.value; setFormData({ ...formData, subjects: ns }); }} className="form-input" placeholder="Optional description" />
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label">Max Marks</label>
-                          <input
-                            type="number"
-                            required
-                            value={subject.maxMarks}
-                            onChange={(e) => {
-                              const newSubjects = [...formData.subjects];
-                              newSubjects[index].maxMarks = parseInt(e.target.value);
-                              setFormData({ ...formData, subjects: newSubjects });
-                            }}
-                            className="form-input"
-                            min="0"
-                          />
+                          <input type="number" required value={subject.maxMarks} onChange={(e) => { const ns = [...formData.subjects]; ns[index].maxMarks = parseInt(e.target.value); setFormData({ ...formData, subjects: ns }); }} className="form-input" min="0" />
                         </div>
                         <div className="form-group" style={{ marginBottom: 0 }}>
                           <label className="form-label">Semester</label>
-                          <input
-                            type="number"
-                            required
-                            value={subject.semester}
-                            onChange={(e) => {
-                              const newSubjects = [...formData.subjects];
-                              newSubjects[index].semester = parseInt(e.target.value);
-                              setFormData({ ...formData, subjects: newSubjects });
-                            }}
-                            className="form-input"
-                            min="1"
-                          />
+                          <input type="number" required value={subject.semester} onChange={(e) => { const ns = [...formData.subjects]; ns[index].semester = parseInt(e.target.value); setFormData({ ...formData, subjects: ns }); }} className="form-input" min="1" />
                         </div>
                       </div>
                     </div>
                   ))}
-
                   {formData.subjects.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--gray-500)', background: 'var(--gray-50)', borderRadius: 'var(--radius-lg)', border: '1px dashed var(--gray-300)' }}>
                       <BookOpen size={24} style={{ margin: '0 auto 0.5rem', opacity: 0.5 }} />
@@ -460,32 +304,13 @@ const AdminCourses = () => {
               </div>
 
               <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '0.75rem' }}>
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--primary-600)', cursor: 'pointer' }}
-                />
+                <input type="checkbox" id="isActive" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} style={{ width: '1.25rem', height: '1.25rem', accentColor: 'var(--primary-600)', cursor: 'pointer' }} />
                 <label htmlFor="isActive" className="form-label" style={{ margin: 0, cursor: 'pointer', fontSize: '1rem' }}>Active Course</label>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '2rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
-                <button
-                  type="button"
-                  onClick={handleCloseModal}
-                  className="btn btn-secondary"
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Saving...' : 'Save Course'}
-                </button>
+                <button type="button" onClick={handleCloseModal} className="btn btn-secondary" disabled={submitting}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Course'}</button>
               </div>
             </form>
           </div>
@@ -538,10 +363,8 @@ const AdminCourses = () => {
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {viewingCourse.sessions.map((session, i) => (
                       <span key={i} className="badge badge-info" style={{ display: 'inline-flex', gap: '0.25rem', alignItems: 'center' }}>
-                        {session.session_type} 
-                        <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                          ({session.start_date || 'TBA'} - {session.end_date || 'TBA'})
-                        </span>
+                        {session.session_type}
+                        <span style={{ opacity: 0.8, fontSize: '0.7rem' }}>({session.start_date || 'TBA'} - {session.end_date || 'TBA'})</span>
                       </span>
                     ))}
                   </div>
@@ -581,6 +404,24 @@ const AdminCourses = () => {
         </div>
       )}
     </div>
+  );
+};
+
+const CourseBulkActions = ({ onAfterDelete }) => {
+  const { selectedIds = [] } = useListContext();
+  const { remove, isPending } = useBulkActions('courses');
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete ${selectedIds.length} course(s)? This cannot be undone.`)) return;
+    await remove();
+    onAfterDelete();
+  };
+
+  if (!selectedIds.length) return null;
+  return (
+    <button className="btn btn-sm btn-danger" onClick={handleDelete} disabled={isPending}>
+      <Trash2 size={14} /> {isPending ? 'Deleting…' : 'Delete Selected'}
+    </button>
   );
 };
 

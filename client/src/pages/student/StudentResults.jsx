@@ -1,51 +1,33 @@
 import { useFetch } from '../../hooks/useFetch';
-import { useAuth } from '../../context/AuthContext';
-import { useState, useEffect } from 'react';
-import api from '../../services/api';
+import DataTable from '../../components/ui/DataTable';
 
 const StudentResults = () => {
-  const { user } = useAuth();
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [studentId, setStudentId] = useState(null);
+  const { data: profile } = useFetch('/students/me');
+  const studentId = profile?.id;
+  const url = studentId ? `/results/student/${studentId}` : null;
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const { data: profile } = await api.get('/students/me');
-        setStudentId(profile.id);
-        const { data } = await api.get(`/results/student/${profile.id}`);
-        setResults(data);
-      } catch {}
-      setLoading(false);
-    };
-    fetch();
-  }, []);
-
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  const columns = [
+    { source: 'exams.name', label: 'Exam' },
+    { source: 'subjects.name', label: 'Subject' },
+    { source: 'marks_obtained', label: 'Marks', sortable: true, render: (v, r) => `${v} / ${r.subjects?.max_marks ?? '-'}` },
+    { source: 'grade', label: 'Grade', render: (v) => v || '—' },
+    { source: 'is_pass', label: 'Status', render: (v) => <span className={`badge badge-${v ? 'success' : 'danger'}`}>{v ? 'Pass' : 'Fail'}</span> },
+  ];
 
   return (
     <div>
       <div className="page-header"><h1>My Results</h1></div>
-      <div className="card table-container">
-        <table className="data-table">
-          <thead><tr><th>Exam</th><th>Subject</th><th>Marks</th><th>Max</th><th>Grade</th><th>Status</th></tr></thead>
-          <tbody>
-            {results.map(r => (
-              <tr key={r.id}>
-                <td>{r.exams?.name}</td>
-                <td>{r.subjects?.name}</td>
-                <td>{r.marks_obtained}</td>
-                <td>{r.subjects?.max_marks}</td>
-                <td>{r.grade || '—'}</td>
-                <td><span className={`badge badge-${r.is_pass ? 'success' : 'danger'}`}>{r.is_pass ? 'Pass' : 'Fail'}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {results.length === 0 && <div className="empty-state"><p>No results published yet</p></div>}
-      </div>
+      {studentId && (
+        <DataTable
+          resource="results"
+          columns={columns}
+          url={url}
+          emptyMessage="No results published yet"
+          defaultSort={{ field: 'created_at', order: 'DESC' }}
+        />
+      )}
     </div>
   );
 };
+
 export default StudentResults;

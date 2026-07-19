@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
+import { applyListQuery, parseListParams, respondList } from '../utils/listQuery.js';
 
 export const apply = async (req, res) => {
   try {
@@ -166,14 +167,34 @@ export const getStudents = async (req, res) => {
       }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('students')
-      .select('*, users(full_name, email), courses(name), sessions(session_type, start_date, end_date)')
-      .eq('franchise_id', req.params.id)
-      .order('created_at', { ascending: false });
+    const listOpts = {
+      sortable: ['student_id_number', 'enrollment_date', 'created_at', 'status'],
+      searchable: ['student_id_number', 'full_name', 'email'],
+      filterable: ['status', 'course_id', 'session_id'],
+    };
 
-    if (error) throw error;
-    res.json(data);
+    let query = supabaseAdmin
+      .from('students')
+      .select(
+        '*, users(full_name, email), courses(name), sessions(session_type, start_date, end_date)',
+        { count: 'exact' }
+      )
+      .eq('franchise_id', req.params.id);
+
+    ({ query } = applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    if (req.query.q) {
+      const escaped = String(req.query.q).replace(/[%_]/g, (m) => '\\' + m);
+      const pat = `%${escaped}%`;
+      query = query.or(
+        `student_id_number.ilike.${pat},users.full_name.ilike.${pat},users.email.ilike.${pat}`
+      );
+    }
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get franchise students error:', err);
     res.status(500).json({ error: 'Failed to fetch students' });

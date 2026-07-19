@@ -2,37 +2,32 @@ import { useState, useEffect } from 'react';
 import { BookOpen, Eye, X, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../../services/api';
+import DataTable from '../../components/ui/DataTable';
+import { useFetch } from '../../hooks/useFetch';
 
 const FranchiseCourses = () => {
-  const [franchise, setFranchise] = useState(null);
+  const { data: franchise, loading: loadingFranchise } = useFetch('/franchises/me');
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewingCourse, setViewingCourse] = useState(null);
   const [courseStudents, setCourseStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
-  const [showStudents, setShowStudents] = useState(null); // courseId
+  const [showStudents, setShowStudents] = useState(null);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: myFranchise } = await api.get('/franchises/me');
-        if (myFranchise) {
-          setFranchise(myFranchise);
-          const { data } = await api.get(`/franchises/${myFranchise.id}/courses`);
-          setCourses(data);
-        }
-      } catch { }
+    if (!franchise) return;
+    api.get(`/franchises/${franchise.id}/courses`).then(({ data }) => {
+      setCourses(data || []);
       setLoading(false);
-    };
-    fetchData();
-  }, []);
+    });
+  }, [franchise]);
 
   const handleShowStudents = async (course) => {
     setShowStudents(course.id);
     setLoadingStudents(true);
     try {
       const { data: allStudents } = await api.get(`/franchises/${franchise.id}/students`);
-      const filtered = allStudents.filter(s => s.course_id === course.id);
+      const filtered = (allStudents?.data || allStudents || []).filter(s => s.course_id === course.id);
       setCourseStudents(filtered);
     } catch {
       setCourseStudents([]);
@@ -40,7 +35,7 @@ const FranchiseCourses = () => {
     setLoadingStudents(false);
   };
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
+  if (loadingFranchise || loading) return <div className="loading-screen"><div className="spinner" /></div>;
 
   return (
     <div>
@@ -49,13 +44,13 @@ const FranchiseCourses = () => {
         <p style={{ color: '#6b7280', marginTop: '0.25rem' }}>Courses associated with your franchise</p>
       </div>
 
-      <div className="card table-container">
-        {courses.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
-            <BookOpen size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
-            <p>No courses associated with your franchise.</p>
-          </div>
-        ) : (
+      {courses.length === 0 ? (
+        <div className="card" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+          <BookOpen size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+          <p>No courses associated with your franchise.</p>
+        </div>
+      ) : (
+        <div className="card table-container">
           <table className="data-table">
             <thead>
               <tr>
@@ -90,20 +85,10 @@ const FranchiseCourses = () => {
                   </td>
                   <td>
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => setViewingCourse(course)}
-                        className="btn-icon"
-                        title="View course"
-                        style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
-                      >
+                      <button onClick={() => setViewingCourse(course)} className="btn-icon" title="View course" style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}>
                         <Eye size={18} />
                       </button>
-                      <button
-                        onClick={() => handleShowStudents(course)}
-                        className="btn-icon"
-                        title="View enrolled students"
-                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
-                      >
+                      <button onClick={() => handleShowStudents(course)} className="btn-icon" title="View enrolled students" style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}>
                         <Users size={18} />
                       </button>
                     </div>
@@ -112,10 +97,9 @@ const FranchiseCourses = () => {
               ))}
             </tbody>
           </table>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Course Details Modal */}
       {viewingCourse && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '600px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -203,7 +187,6 @@ const FranchiseCourses = () => {
         </div>
       )}
 
-      {/* Enrolled Students Modal */}
       {showStudents && (
         <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
           <div className="modal-content card" style={{ width: '100%', maxWidth: '700px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -223,14 +206,7 @@ const FranchiseCourses = () => {
               <div className="table-container">
                 <table className="data-table">
                   <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Name</th>
-                      <th>Email</th>
-                      <th>Session</th>
-                      <th>Status</th>
-                      <th>Enrolled</th>
-                    </tr>
+                    <tr><th>ID</th><th>Name</th><th>Email</th><th>Session</th><th>Status</th><th>Enrolled</th></tr>
                   </thead>
                   <tbody>
                     {courseStudents.map(s => (
@@ -240,7 +216,7 @@ const FranchiseCourses = () => {
                         <td>{s.users?.email}</td>
                         <td>
                           {s.sessions ? (
-                            <span className="badge" >
+                            <span className="badge">
                               {s.sessions.session_type}
                               <span style={{ opacity: 0.8 }}>({s.sessions.start_date || 'TBA'} - {s.sessions.end_date || 'TBA'})</span>
                             </span>

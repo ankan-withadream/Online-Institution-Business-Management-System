@@ -2,6 +2,7 @@ import { supabaseAdmin } from '../config/supabase.js';
 import { getDownloadUrl } from '../utils/r2.js';
 import crypto from 'crypto';
 import { resolveStudentPhotoDataUrl } from './students.controller.js';
+import { applyListQuery, parseListParams, respondList } from '../utils/listQuery.js';
 
 const generateCertCode = () => `CERT-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
 
@@ -75,16 +76,52 @@ export const getByStudent = async (req, res) => {
       }
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('certificates')
-      .select('*, courses(name)')
-      .eq('student_id', req.params.studentId)
-      .order('created_at', { ascending: false });
+    const listOpts = {
+      sortable: ['issue_date', 'created_at'],
+      searchable: ['certificate_number'],
+      filterable: [],
+    };
 
-    if (error) throw error;
-    res.json(data);
+    let query = supabaseAdmin
+      .from('certificates')
+      .select('*, courses(name)', { count: 'exact' })
+      .eq('student_id', req.params.studentId);
+
+    ({ query } = applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get certificates error:', err);
+    res.status(500).json({ error: 'Failed to fetch certificates' });
+  }
+};
+
+export const getAll = async (req, res) => {
+  try {
+    const listOpts = {
+      sortable: ['issue_date', 'created_at'],
+      searchable: ['certificate_number'],
+      filterable: ['course_id'],
+    };
+
+    let query = supabaseAdmin
+      .from('certificates')
+      .select(
+        '*, students(student_id_number, users(full_name)), courses(name)',
+        { count: 'exact' }
+      );
+
+    ({ query } = applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
+  } catch (err) {
+    console.error('Get all certificates error:', err);
     res.status(500).json({ error: 'Failed to fetch certificates' });
   }
 };
