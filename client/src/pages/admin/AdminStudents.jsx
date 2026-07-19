@@ -21,7 +21,26 @@ const AdminStudents = () => {
   const [cardPhotoUrl, setCardPhotoUrl] = useState(null);
   const [generatingCard, setGeneratingCard] = useState(false);
   const [cardStudent, setCardStudent] = useState(null);
+  // Holds the exam center value chosen via the admit-card config modal.
+  const [cardExamCentre, setCardExamCentre] = useState('');
+  // Pre-generate modal state (lets the user pick an exam center for
+  // the admit card before the preview modal opens).
+  const [isAdmitConfigOpen, setIsAdmitConfigOpen] = useState(false);
+  const [admitConfigStudent, setAdmitConfigStudent] = useState(null);
+  const [examCenterChoice, setExamCenterChoice] = useState('Online Remote');
+  const [examCenterCustom, setExamCenterCustom] = useState('');
   const navigate = useNavigate();
+
+  // Preset exam centers shown in the dropdown. "Other" reveals a
+  // free-text input for an arbitrary value.
+  const EXAM_CENTER_PRESETS = [
+    'Online Remote',
+    'Kolkata Center',
+    'VEHTI Kalyanpur',
+    'Vivekananda Education & Health Training Institute',
+    'VEHTI',
+    'Other',
+  ];
 
   useEffect(() => {
     if (students) {
@@ -54,8 +73,19 @@ const AdminStudents = () => {
   };
 
   const handleGenerateCard = async (student, mode) => {
+    // Admit cards need an exam center chosen first. Open the config
+    // modal and defer the actual preview until the user confirms.
+    if (mode === 'admit') {
+      setAdmitConfigStudent(student);
+      setExamCenterChoice('Online Remote');
+      setExamCenterCustom('');
+      setIsAdmitConfigOpen(true);
+      return;
+    }
+
     setCardStudent(student);
     setCardMode(mode);
+    setCardExamCentre('');
     setGeneratingCard(true);
     setIsCardModalOpen(true);
     setCardPhotoUrl(null);
@@ -70,10 +100,45 @@ const AdminStudents = () => {
     }
   };
 
+  const handleAdmitConfigConfirm = async () => {
+    const student = admitConfigStudent;
+    const centre = examCenterChoice === 'Other'
+      ? examCenterCustom.trim()
+      : examCenterChoice;
+    if (!centre) {
+      toast.error('Please choose or enter an exam center');
+      return;
+    }
+    setIsAdmitConfigOpen(false);
+    setAdmitConfigStudent(null);
+    setCardStudent(student);
+    setCardMode('admit');
+    setCardExamCentre(centre);
+    setGeneratingCard(true);
+    setIsCardModalOpen(true);
+    setCardPhotoUrl(null);
+
+    try {
+      const { data } = await api.get(`/students/${student.id}/photo`);
+      setCardPhotoUrl(data.photoUrl);
+    } catch {
+      setCardPhotoUrl(null);
+    } finally {
+      setGeneratingCard(false);
+    }
+  };
+
+  const handleAdmitConfigCancel = () => {
+    setIsAdmitConfigOpen(false);
+    setAdmitConfigStudent(null);
+    setExamCenterCustom('');
+  };
+
   const handleCloseCardModal = () => {
     setIsCardModalOpen(false);
     setCardStudent(null);
     setCardPhotoUrl(null);
+    setCardExamCentre('');
   };
 
   const buildCardProps = () => {
@@ -97,6 +162,7 @@ const AdminStudents = () => {
       photoUrl: cardPhotoUrl,
       validity: `Valid for Academic Session ${student.sessions?.session_type || student.sessions?.start_date ? `${student.sessions?.start_date || ''} - ${student.sessions?.end_date || ''}` : (student.enrollment_date || '')}`,
       issueDate: student.enrollment_date || new Date().toISOString().split('T')[0],
+      examCentre: cardExamCentre,
     };
   };
 
@@ -235,6 +301,54 @@ const AdminStudents = () => {
                 View Admission Details
               </button>
               <button onClick={() => setViewingStudent(null)} className="btn btn-secondary">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admit Card Exam Center Config Modal */}
+      {isAdmitConfigOpen && admitConfigStudent && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '480px', padding: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Admit Card — Exam Center</h2>
+              <button onClick={handleAdmitConfigCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}>
+                <X size={20} />
+              </button>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#4b5563', marginBottom: '1.5rem' }}>
+              Choose the exam center for <strong>{admitConfigStudent.users?.full_name}</strong>. The selected value will be printed on the admit card.
+            </p>
+            <div className="form-group">
+              <label className="form-label">Exam Center</label>
+              <select
+                className="form-select"
+                value={examCenterChoice}
+                onChange={(e) => setExamCenterChoice(e.target.value)}
+              >
+                {EXAM_CENTER_PRESETS.map((preset) => (
+                  <option key={preset} value={preset}>{preset}</option>
+                ))}
+              </select>
+            </div>
+            {examCenterChoice === 'Other' && (
+              <div className="form-group">
+                <label className="form-label">Custom Exam Center</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={examCenterCustom}
+                  onChange={(e) => setExamCenterCustom(e.target.value)}
+                  placeholder="Enter exam center name"
+                  autoFocus
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem' }}>
+              <button type="button" onClick={handleAdmitConfigCancel} className="btn btn-secondary">Cancel</button>
+              <button type="button" onClick={handleAdmitConfigConfirm} className="btn btn-primary">
+                Generate Admit Card
+              </button>
             </div>
           </div>
         </div>

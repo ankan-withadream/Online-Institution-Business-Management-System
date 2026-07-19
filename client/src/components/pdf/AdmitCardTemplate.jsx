@@ -102,6 +102,25 @@ const styles = StyleSheet.create({
   },
 });
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const formatMonthYear = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return `${MONTH_ABBR[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+// Strips the leading session type ("Night", "Day", "Normal") and the
+// parentheses around the date range, returning just "Feb 2025 - Feb 2030".
+// Falls back to the original string if the expected shape isn't found.
+const formatSessionDates = (value) => {
+  if (!value) return '';
+  const match = value.match(/^(?:Night|Day|Normal)\s*\(\s*([\d]{4}-[\d]{2}-[\d]{2})\s*-\s*([\d]{4}-[\d]{2}-[\d]{2})\s*\)/);
+  if (!match) return value;
+  return `${formatMonthYear(match[1])} - ${formatMonthYear(match[2])}`;
+};
+
 const AdmitCardTemplate = ({
   admitCards = [],
   studentName,
@@ -110,14 +129,15 @@ const AdmitCardTemplate = ({
   courseName,
   sessionName,
   photoUrl,
+  examCentre,
 }) => {
   const cardsToRender = admitCards.length > 0
     ? admitCards
-    : [{ studentName, fatherName, studentIdNumber, courseName, sessionName, photoUrl }];
+    : [{ studentName, fatherName, studentIdNumber, courseName, sessionName, photoUrl, examCentre }];
 
-  // Static values as requested
+  // Default values; overridden by props if provided.
   const YEAR = '2026';
-  const EXAM_CENTRE = 'Online Remote';
+  const DEFAULT_EXAM_CENTRE = 'Online Remote';
 
   return (
     <Document>
@@ -134,10 +154,10 @@ const AdmitCardTemplate = ({
             <Text style={styles.registrationNo}>{card.studentIdNumber || ''}</Text>
             <Text style={styles.studentName}>{card.studentName || ''}</Text>
             <Text style={styles.fatherName}>{card.fatherName || ''}</Text>
-            <Text style={styles.batch}>{card.sessionName || ''}</Text>
+            <Text style={styles.batch}>{formatSessionDates(card.sessionName) || ''}</Text>
             <Text style={styles.course}>{card.courseName || ''}</Text>
             <Text style={styles.year}>{YEAR}</Text>
-            <Text style={styles.examCentre}>{EXAM_CENTRE}</Text>
+            <Text style={styles.examCentre}>{card.examCentre || DEFAULT_EXAM_CENTRE}</Text>
           </View>
         </Page>
       ))}
