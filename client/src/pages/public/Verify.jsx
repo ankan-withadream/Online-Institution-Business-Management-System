@@ -105,7 +105,7 @@ const Verify = () => {
               </div>
             )}
             <div className="form-group">
-              <label className="form-label">{isCertificate ? 'Certificate Verification Code' : 'Student ID Number'}</label>
+              <label className="form-label">{isCertificate ? 'Certificate Registration Code' : 'Student ID Number'}</label>
               <input
                 className="form-input"
                 placeholder={isCertificate ? 'e.g. CERT-A1B2C3D4' : 'e.g. STU-2026-0001'}

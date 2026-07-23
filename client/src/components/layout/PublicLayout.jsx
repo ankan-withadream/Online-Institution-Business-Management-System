@@ -2,6 +2,7 @@ import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Menu, X, GraduationCap } from 'lucide-react';
 import logoVehti from '../../assets/logo_brand.png';
+import headerBg from '../../assets/Header_bg_2.png';
 import { useState, useEffect } from 'react';
 import './PublicLayout.css';
 
@@ -39,10 +40,13 @@ export const PublicLayout = () => {
 
         {/* Header top bar */}
         <div className={`header-top-bar ${isScrolled ? 'collapsed' : ''}`}>
-          <Link to="/" className="logo">
-            <img src={logoVehti} alt="VEHTI Logo" style={{ height: '120px', width: '120px' }} />
+          <div className="header-top-bg header-top-bg-left">
+            <img src={headerBg} alt="" />
+          </div>
+          <span className="header-top-title">Vivekananda Education & Health Training Institute</span>
+          <Link to="/" className="logo header-top-logo" aria-label="Home">
+            <img src={logoVehti} alt="VEHTI Logo" />
           </Link>
-          <span>Vivekananda Education & Health Training Institute</span>
         </div>
 
         {/* Header inner bar */}
