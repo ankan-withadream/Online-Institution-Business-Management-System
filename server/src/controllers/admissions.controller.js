@@ -68,6 +68,46 @@ export const getById = async (req, res) => {
   }
 };
 
+export const update = async (req, res) => {
+  try {
+    const { fullName, fatherName, motherName, email, phone,
+            dateOfBirth, gender, address, city, state, pincode,
+            courseId, sessionId, franchiseId } = req.body;
+
+    const updates = {};
+    if (fullName !== undefined) updates.full_name = fullName;
+    if (fatherName !== undefined) updates.father_name = fatherName || null;
+    if (motherName !== undefined) updates.mother_name = motherName || null;
+    if (email !== undefined) updates.email = email;
+    if (phone !== undefined) updates.phone = phone;
+    if (dateOfBirth !== undefined) updates.date_of_birth = dateOfBirth;
+    if (gender !== undefined) updates.gender = gender;
+    if (address !== undefined) updates.address = address;
+    if (city !== undefined) updates.city = city || null;
+    if (state !== undefined) updates.state = state || null;
+    if (pincode !== undefined) updates.pincode = pincode || null;
+    if (courseId !== undefined) updates.course_id = courseId;
+    if (sessionId !== undefined || sessionId !== null) updates.session_id = sessionId;
+    if (franchiseId !== undefined || franchiseId !== null) updates.franchise_id = franchiseId;
+    updates.updated_at = new Date().toISOString();
+
+    const { data, error } = await supabaseAdmin
+      .from('admissions')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Admission not found' });
+
+    res.json({ message: 'Admission updated', admission: data });
+  } catch (err) {
+    console.error('Update admission error:', err);
+    res.status(500).json({ error: 'Failed to update admission' });
+  }
+};
+
 export const updateStatus = async (req, res) => {
   try {
     const { status, adminRemarks, sessionId } = req.body;

@@ -1,10 +1,11 @@
-import { useFetch } from '../../hooks/useFetch';
-import { format } from 'date-fns';
 import { useState, useEffect } from 'react';
-import { Eye, X, FileText, Download, Image as ImageIcon } from 'lucide-react';
+import { Eye, X, FileText, Download, Image as ImageIcon, Edit2, Trash2, Upload } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import { useFetch } from '../../hooks/useFetch';
+import { uploadDocument, deleteDocument } from '../../services/documents';
+import { format } from 'date-fns';
 import api from '../../services/api';
+import toast from 'react-hot-toast';
 
 const AdminAdmissions = () => {
   const { data: admissions, loading, refetch } = useFetch('/admissions');
@@ -16,6 +17,14 @@ const AdminAdmissions = () => {
   const [documents, setDocuments] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [previewDocId, setPreviewDocId] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAdmission, setEditingAdmission] = useState(null);
+  const [editFormData, setEditFormData] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [editDocuments, setEditDocuments] = useState([]);
+  const [editDocsLoading, setEditDocsLoading] = useState(false);
+  const [uploadingDocType, setUploadingDocType] = useState(null);
+  const [deletingDocId, setDeletingDocId] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -71,6 +80,99 @@ const AdminAdmissions = () => {
     setSelectedSession(admission.session_id || '');
   };
 
+  const handleEdit = async (admission) => {
+    setEditingAdmission(admission);
+    setEditFormData({
+      fullName: admission.full_name || '',
+      fatherName: admission.father_name || '',
+      motherName: admission.mother_name || '',
+      email: admission.email || '',
+      phone: admission.phone || '',
+      dateOfBirth: admission.date_of_birth || '',
+      gender: admission.gender || '',
+      address: admission.address || '',
+      city: admission.city || '',
+      state: admission.state || '',
+      pincode: admission.pincode || '',
+      courseId: admission.course_id || '',
+      sessionId: admission.session_id || null,
+      franchiseId: admission.franchise_id || null,
+    });
+    // Only admin needs course & session fields; remove for other roles.
+
+    // Fetch existing documents for the re-upload section
+    setEditDocsLoading(true);
+    setEditDocuments([]);
+    try {
+      const res = await api.get(`/documents/entity/admission/${admission.id}`);
+      setEditDocuments(res.data);
+    } catch {
+      setEditDocuments([]);
+    } finally {
+      setEditDocsLoading(false);
+    }
+
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditDocUpload = async (documentType, file) => {
+    if (!file) return;
+    setUploadingDocType(documentType);
+    try {
+      // If a document of this type exists, delete the old one first
+      const oldDoc = editDocuments.find(d => d.document_type === documentType);
+      if (oldDoc) {
+        try {
+          await deleteDocument(oldDoc.id);
+        } catch {
+          // continue even if delete fails — the upload may still succeed
+        }
+      }
+      await uploadDocument({
+        file,
+        entityType: 'admission',
+        entityId: editingAdmission.id,
+        documentType,
+      });
+      toast.success(`${documentType.replace(/_/g, ' ')} ${oldDoc ? 'replaced' : 'uploaded'}`);
+      // Refresh the document list for this admission
+      const res = await api.get(`/documents/entity/admission/${editingAdmission.id}`);
+      setEditDocuments(res.data);
+    } catch (err) {
+      toast.error(`Failed to upload ${documentType.replace(/_/g, ' ')}`);
+    } finally {
+      setUploadingDocType(null);
+    }
+  };
+
+  const handleEditDocDelete = async (docId) => {
+    setDeletingDocId(docId);
+    try {
+      await deleteDocument(docId);
+      toast.success('Document deleted');
+      setEditDocuments(prev => prev.filter(d => d.id !== docId));
+    } catch {
+      toast.error('Failed to delete document');
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.put(`/admissions/${editingAdmission.id}`, editFormData);
+      toast.success('Admission updated successfully');
+      setIsEditModalOpen(false);
+      setEditingAdmission(null);
+      refetch();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to update admission');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <div className="page-header"><h1>Admissions</h1></div>
@@ -95,6 +197,14 @@ const AdminAdmissions = () => {
                         style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', padding: '0.25rem' }}
                       >
                         <Eye size={18} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(a)}
+                        className="btn-icon"
+                        title="Edit admission"
+                        style={{ background: 'none', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: '0.25rem' }}
+                      >
+                        <Edit2 size={18} />
                       </button>
                       {a.status === 'pending' && (
                         <>
@@ -144,6 +254,216 @@ const AdminAdmissions = () => {
                 {processing === approvingAdmission.id ? 'Processing...' : 'Approve & Create Student'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Admission Modal */}
+      {isEditModalOpen && editingAdmission && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '620px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Edit Admission — {editingAdmission.full_name}</h2>
+              <button
+                onClick={() => { setIsEditModalOpen(false); setEditingAdmission(null); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit}>
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Full Name *</label>
+                  <input type="text" required className="form-input"
+                    value={editFormData.fullName}
+                    onChange={e => setEditFormData(d => ({ ...d, fullName: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Email *</label>
+                  <input type="email" required className="form-input"
+                    value={editFormData.email}
+                    onChange={e => setEditFormData(d => ({ ...d, email: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Father's Name</label>
+                  <input type="text" className="form-input"
+                    value={editFormData.fatherName}
+                    onChange={e => setEditFormData(d => ({ ...d, fatherName: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Mother's Name</label>
+                  <input type="text" className="form-input"
+                    value={editFormData.motherName}
+                    onChange={e => setEditFormData(d => ({ ...d, motherName: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Phone *</label>
+                  <input type="text" required className="form-input"
+                    value={editFormData.phone}
+                    onChange={e => setEditFormData(d => ({ ...d, phone: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Date of Birth</label>
+                  <input type="date" className="form-input"
+                    value={editFormData.dateOfBirth}
+                    onChange={e => setEditFormData(d => ({ ...d, dateOfBirth: e.target.value }))} />
+                </div>
+              </div>
+
+              <div className="grid grid-2">
+                <div className="form-group">
+                  <label className="form-label">Gender</label>
+                  <select className="form-select"
+                    value={editFormData.gender}
+                    onChange={e => setEditFormData(d => ({ ...d, gender: e.target.value }))}>
+                    <option value="">Select</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Course</label>
+                  <select className="form-select"
+                    value={editFormData.courseId}
+                    onChange={e => setEditFormData(d => ({ ...d, courseId: e.target.value }))}>
+                    <option value="">-- Select Course --</option>
+                    {courses?.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Address</label>
+                <input type="text" className="form-input"
+                  value={editFormData.address}
+                  onChange={e => setEditFormData(d => ({ ...d, address: e.target.value }))} />
+              </div>
+
+              <div className="grid grid-3">
+                <div className="form-group">
+                  <label className="form-label">City</label>
+                  <input type="text" className="form-input"
+                    value={editFormData.city}
+                    onChange={e => setEditFormData(d => ({ ...d, city: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">State</label>
+                  <input type="text" className="form-input"
+                    value={editFormData.state}
+                    onChange={e => setEditFormData(d => ({ ...d, state: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Pincode</label>
+                  <input type="text" className="form-input"
+                    value={editFormData.pincode}
+                    onChange={e => setEditFormData(d => ({ ...d, pincode: e.target.value }))} />
+                </div>
+              </div>
+
+              {/* ── Document Re-upload Section ── */}
+              <div style={{ marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '1rem' }}>Documents</h3>
+                <p style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '1rem' }}>
+                  Upload replacement documents or delete existing ones. Accepted: JPEG, PNG, WebP, PDF (max 5 MB).
+                </p>
+
+                {editDocsLoading ? (
+                  <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>Loading documents...</div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '0.75rem' }}>
+                    {/* Existing documents */}
+                    {editDocuments.map((doc) => (
+                      <div key={doc.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.75rem', border: '1px solid var(--gray-200)', borderRadius: '0.5rem', background: 'var(--gray-50)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                          {/\.(jpg|jpeg|png|webp|gif)$/i.test(doc.original_name || doc.file_url) ? <ImageIcon size={18} color="#6b7280" /> : <FileText size={18} color="#6b7280" />}
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.8rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {doc.original_name}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#6b7280', textTransform: 'capitalize' }}>
+                              {doc.document_type.replace(/_/g, ' ')}
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleEditDocDelete(doc.id)}
+                          disabled={deletingDocId === doc.id}
+                          className="btn-icon"
+                          style={{ padding: '0.5rem', background: 'none', border: 'none', color: 'var(--danger-500)', cursor: 'pointer', flexShrink: 0 }}
+                          title={`Delete ${doc.document_type}`}
+                        >
+                          {deletingDocId === doc.id ? <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} /> : <Trash2 size={16} />}
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* Upload slots for each document type */}
+                    {['applicant_photo', 'aadhaar_card', 'marksheet', 'admit_card', 'certificate', 'caste_certificate'].map((docType) => {
+                      const existing = editDocuments.find(d => d.document_type === docType);
+                      return (
+                        <div key={docType} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', border: '1px dashed var(--gray-300)', borderRadius: '0.5rem' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#6b7280', width: '140px', textTransform: 'capitalize', flexShrink: 0 }}>
+                            {docType.replace(/_/g, ' ')}
+                          </span>
+                          <label style={{
+                            flex: 1,
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            padding: '0.4rem 0.75rem',
+                            background: uploadingDocType === docType ? 'var(--gray-100)' : 'var(--primary-50)',
+                            color: 'var(--primary-700)',
+                            borderRadius: '0.375rem',
+                            fontSize: '0.75rem',
+                            fontWeight: 500,
+                            cursor: uploadingDocType === docType ? 'default' : 'pointer',
+                            textAlign: 'center', justifyContent: 'center',
+                          }}>
+                            {uploadingDocType === docType ? (
+                              <div className="spinner" style={{ width: '14px', height: '14px', borderWidth: '2px', flexShrink: 0 }} />
+                            ) : (
+                              <><Upload size={14} /> {existing ? 'Replace file' : 'Upload file'}</>
+                            )}
+                            <input
+                              type="file"
+                              accept=".jpg,.jpeg,.png,.webp,.pdf"
+                              disabled={uploadingDocType === docType}
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) handleEditDocUpload(docType, e.target.files[0]);
+                                e.target.value = '';
+                              }}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                          {existing && (
+                            <span style={{ fontSize: '0.7rem', color: '#16a34a', flexShrink: 0 }}>✓</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+                <button type="button" onClick={() => { setIsEditModalOpen(false); setEditingAdmission(null); }} className="btn btn-secondary" disabled={submitting}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                  {submitting ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

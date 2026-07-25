@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { QrCode, X, Upload, Plus } from 'lucide-react';
+import { QrCode, X, Upload, Plus, Receipt, Trash2, FileText } from 'lucide-react';
 import { format } from 'date-fns';
+import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
+import InvoiceTemplate from '../../components/pdf/InvoiceTemplate';
 import api from '../../services/api';
 import { useFetch } from '../../hooks/useFetch';
 import toast from 'react-hot-toast';
@@ -27,6 +29,20 @@ const AdminPayments = () => {
   const [loadingQr, setLoadingQr] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+
+  // ── Invoice state ──
+  // Two-phase flow: first a config modal for bill items, then a
+  // preview modal with PDFViewer.
+  const [invoiceConfigOpen, setInvoiceConfigOpen] = useState(false);
+  const [invoicePreviewOpen, setInvoicePreviewOpen] = useState(false);
+  const [invoiceData, setInvoiceData] = useState(null);
+  // items are the bill line-items entered in the config modal
+  const [invoiceItems, setInvoiceItems] = useState([
+    { particular: 'Admission Fees', amount: '' },
+    { particular: 'Registration Fees', amount: '' },
+    { particular: 'Course Fees', amount: '' },
+    { particular: 'Examination Fees', amount: '' },
+  ]);
 
   const fetchQrCode = async () => {
     setLoadingQr(true);
@@ -154,6 +170,66 @@ const AdminPayments = () => {
     }
   };
 
+  // ── Invoice handlers ──
+  const handleOpenInvoiceConfig = (payment) => {
+    // Resolve session info from the locally-fetched students list
+    const studentRecord = students?.find(s => s.id === payment.student_id);
+    const sessionName = studentRecord?.sessions?.session_type
+      ? `${studentRecord.sessions.session_type} (${studentRecord.sessions.start_date || 'TBA'} - ${studentRecord.sessions.end_date || 'TBA'})`
+      : 'N/A';
+
+    setInvoiceData({
+      studentName: payment.students?.users?.full_name || 'N/A',
+      registrationNo: payment.students?.student_id_number || 'N/A',
+      courseName: payment.courses?.name || 'N/A',
+      sessionName,
+      generatedDate: payment.created_at || new Date().toISOString(),
+    });
+    // Pre-fill items based on payment amounts if available
+    setInvoiceItems([
+      { particular: 'Admission Fees', amount: '' },
+      { particular: 'Registration Fees', amount: '' },
+      { particular: 'Examination Fees', amount: '' },
+    ]);
+    setInvoiceConfigOpen(true);
+  };
+
+  const handleInvoiceItemChange = (index, field, value) => {
+    setInvoiceItems(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  const handleAddInvoiceItem = () => {
+    setInvoiceItems(prev => [...prev, { particular: '', amount: '' }]);
+  };
+
+  const handleRemoveInvoiceItem = (index) => {
+    if (invoiceItems.length <= 1) return;
+    setInvoiceItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleInvoiceConfigConfirm = () => {
+    const validItems = invoiceItems.filter(
+      item => item.particular.trim() && Number(item.amount) > 0
+    );
+    if (validItems.length === 0) {
+      toast.error('Add at least one item with a valid particular and amount');
+      return;
+    }
+    setInvoiceData(prev => ({ ...prev, items: validItems }));
+    setInvoiceConfigOpen(false);
+    setInvoicePreviewOpen(true);
+  };
+
+  const handleCloseInvoice = () => {
+    setInvoicePreviewOpen(false);
+    setInvoiceConfigOpen(false);
+    setInvoiceData(null);
+  };
+
   if (paymentsLoading) return <div className="loading-screen"><div className="spinner" /></div>;
 
   return (
@@ -186,6 +262,7 @@ const AdminPayments = () => {
               <th>Method</th>
               <th>Transaction ID</th>
               <th>Status</th>
+              <th style={{ textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -206,6 +283,18 @@ const AdminPayments = () => {
                   <span className={`badge badge-${p.status === 'completed' ? 'success' : p.status === 'failed' ? 'danger' : 'warning'}`}>
                     {p.status}
                   </span>
+                </td>
+                <td>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      onClick={() => handleOpenInvoiceConfig(p)}
+                      className="btn-icon"
+                      title="Generate Invoice"
+                      style={{ background: 'none', border: 'none', color: '#8b5cf6', cursor: 'pointer', padding: '0.25rem' }}
+                    >
+                      <Receipt size={18} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -429,6 +518,87 @@ const AdminPayments = () => {
               >
                 {submittingPay ? 'Processing...' : 'Confirm Payment'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Invoice Config Modal (bill items) ── */}
+      {invoiceConfigOpen && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 60 }}>
+          <div className="modal-content card" style={{ width: '100%', maxWidth: '520px', padding: '2rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Invoice — Bill Items</h2>
+              <button onClick={handleCloseInvoice} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280' }}><X size={20} /></button>
+            </div>
+            <p style={{ fontSize: '0.875rem', color: '#4b5563', marginBottom: '1.5rem' }}>
+              Add line items for <strong>{invoiceData?.studentName}</strong>. Each item requires a particular name and amount.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+              {invoiceItems.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input type="text" className="form-input" placeholder="Particular (e.g. Admission Fees)"
+                    value={item.particular}
+                    onChange={e => handleInvoiceItemChange(idx, 'particular', e.target.value)}
+                    style={{ flex: 2 }} />
+                  <input type="number" className="form-input" placeholder="Amount (₹)" min="0"
+                    value={item.amount}
+                    onChange={e => handleInvoiceItemChange(idx, 'amount', e.target.value)}
+                    style={{ flex: 1 }} />
+                  {invoiceItems.length > 1 && (
+                    <button type="button" onClick={() => handleRemoveInvoiceItem(idx)} className="btn-icon"
+                      style={{ padding: '0.5rem', background: 'none', border: 'none', color: 'var(--danger-500)', cursor: 'pointer', flexShrink: 0 }}
+                      title="Remove item"><Trash2 size={16} /></button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button type="button" onClick={handleAddInvoiceItem} className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <Plus size={16} /> Add Item
+            </button>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>
+              <button type="button" onClick={handleCloseInvoice} className="btn btn-secondary">Cancel</button>
+              <button type="button" onClick={handleInvoiceConfigConfirm} className="btn btn-primary">Generate Invoice</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Invoice Preview Modal ── */}
+      {invoicePreviewOpen && invoiceData && (
+        <div className="modal-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }}>
+          <div className="modal-content card" style={{ width: '90%', maxWidth: '1000px', height: '90vh', display: 'flex', flexDirection: 'column', padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb' }}>
+              <div>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Receipt style={{ color: '#1e3a8a' }} /> Invoice Preview
+                </h2>
+                <p style={{ margin: '0.25rem 0 0', color: '#4b5563', fontSize: '0.875rem' }}>
+                  {invoiceData.studentName} — {invoiceData.registrationNo}
+                </p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <PDFDownloadLink
+                  document={<InvoiceTemplate {...invoiceData} />}
+                  fileName={`Invoice_${invoiceData.registrationNo || '000'}.pdf`}
+                  className="btn btn-primary"
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {({ loading }) => loading ? 'Preparing...' : (<><FileText size={18} /> Download PDF</>)}
+                </PDFDownloadLink>
+                <button onClick={handleCloseInvoice}
+                  style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#6b7280' }}>
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            <div style={{ flex: 1, backgroundColor: '#e5e7eb', padding: '1rem' }}>
+              <PDFViewer width="100%" height="100%" style={{ border: 'none', borderRadius: '0.5rem', backgroundColor: '#fff', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
+                <InvoiceTemplate {...invoiceData} />
+              </PDFViewer>
             </div>
           </div>
         </div>

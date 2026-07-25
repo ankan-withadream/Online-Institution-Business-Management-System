@@ -1,15 +1,24 @@
 import { supabaseAdmin } from '../config/supabase.js';
 
-/**
- * Generates a unique student ID like STU-2026-0001
- */
+// Fetches the most recently created student's student_id_number,
+// parses it to integer and increments by 1. Returns a plain numeric
+// string (e.g. "2216162331"). Falls back to a year-prefixed date
+// derivative if no students exist yet.
 export const generateStudentId = async () => {
-  const year = new Date().getFullYear();
-
-  const { count } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('students')
-    .select('*', { count: 'exact', head: true });
+    .select('student_id_number')
+    .order('created_at', { ascending: false })
+    .limit(1);
 
-  const seq = String((count || 0) + 1).padStart(4, '0');
-  return `STU-${year}-${seq}`;
+  if (!error && data && data.length > 0 && data[0].student_id_number) {
+    const lastId = parseInt(data[0].student_id_number, 10);
+    if (!Number.isNaN(lastId)) {
+      return String(lastId + 1);
+    }
+  }
+
+  // Fallback for empty table: use a timestamp-based numeric ID
+  const now = Date.now();
+  return String(now);
 };

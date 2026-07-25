@@ -119,6 +119,24 @@ export const franchiseApplySchema = z.object({
 export const statusUpdateSchema = z.object({
   status: z.enum(['approved', 'rejected']),
   adminRemarks: z.string().optional(),
+  sessionId: z.string().uuid().optional(),
+});
+
+export const admissionUpdateSchema = z.object({
+  fullName: z.string().min(2).optional(),
+  fatherName: z.string().optional(),
+  motherName: z.string().optional(),
+  email: z.string().email().optional(),
+  phone: z.string().min(10).optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  address: z.string().min(5).optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  pincode: z.string().min(6).max(6).optional(),
+  courseId: z.string().uuid().optional(),
+  sessionId: z.string().uuid().optional().nullable(),
+  franchiseId: z.string().uuid().optional().nullable(),
 });
 
 export const subjectSchema = z.object({
