@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
   registrationNo: {
     position: 'absolute',
     top: 40,
-    right: 25,
+    right: 40,
     fontSize: 14,
     color: '#1e3a8a',
     fontFamily: 'Helvetica-Bold',
@@ -130,10 +130,12 @@ const AdmitCardTemplate = ({
   sessionName,
   photoUrl,
   examCentre,
+  serialNumber,
+  registrationNumber,
 }) => {
   const cardsToRender = admitCards.length > 0
     ? admitCards
-    : [{ studentName, fatherName, studentIdNumber, courseName, sessionName, photoUrl, examCentre }];
+    : [{ studentName, fatherName, studentIdNumber, courseName, sessionName, photoUrl, examCentre, serialNumber, registrationNumber }];
 
   // Default values; overridden by props if provided.
   const YEAR = '2026';
@@ -151,7 +153,7 @@ const AdmitCardTemplate = ({
             )}
 
             <Text style={styles.rollNo}>{card.studentIdNumber || ''}</Text>
-            <Text style={styles.registrationNo}>{card.studentIdNumber || ''}</Text>
+            <Text style={styles.registrationNo}>{card.registrationNumber || ''}</Text>
             <Text style={styles.studentName}>{card.studentName || ''}</Text>
             <Text style={styles.fatherName}>{card.fatherName || ''}</Text>
             <Text style={styles.batch}>{formatSessionDates(card.sessionName) || ''}</Text>

@@ -154,6 +154,8 @@ const AdminStudents = () => {
       studentName: student.users?.full_name || '',
       fatherName: student.father_name || '',
       studentIdNumber: student.student_id_number || '',
+      serialNumber: student.serial_number,
+      registrationNumber: student.registration_number,
       courseName: student.courses?.name || '',
       sessionName: sessionStr,
       dateOfBirth: dobVal,

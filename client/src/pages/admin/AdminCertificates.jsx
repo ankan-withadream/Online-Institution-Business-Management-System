@@ -45,7 +45,7 @@ const AdminCertificates = () => {
       const payload = {
         studentId: student.id,
         courseId: selectedCourse,
-        issueDate: new Date().toISOString().split('T')[0],
+        issueDate: computeIssueDate(student),
         fileUrl: '' // Keeping empty for now as requested
       };
 
@@ -94,6 +94,7 @@ const AdminCertificates = () => {
       // Build a synthetic generatedCert object shaped like the create
       // response so the existing templateProps pipeline can render
       // either template without changes.
+      console.log('Migration cert match:', match);
       setGeneratedCert({
         ...match,
         photoUrl: photoRes?.data?.photoUrl ?? null,
@@ -211,6 +212,8 @@ const AdminCertificates = () => {
             fileUrl: response.data.file_url,
             fatherName: studentInfo?.father_name,
             studentIdNumber: studentInfo?.student_id_number,
+            serialNumber: studentInfo?.serial_number,
+            registrationNumber: studentInfo?.registration_number,
             photoUrl: response.data.photoUrl,
           });
         }
@@ -308,6 +311,8 @@ const AdminCertificates = () => {
             certificateCode: match.certificate_number,
             fatherName: studentInfo?.father_name,
             studentIdNumber: studentInfo?.student_id_number,
+            serialNumber: studentInfo?.serial_number,
+            registrationNumber: studentInfo?.registration_number,
             issuerName: courseDetails?.name || 'Vivekananda Education & Health Training Institute',
             photoUrl: photoRes?.data?.photoUrl ?? null,
           });
@@ -340,6 +345,18 @@ const AdminCertificates = () => {
   };
 
   const courseDetails = courses?.find(c => c.id === selectedCourse);
+
+  // Compute certificate issue date: session end_date + 1 month.
+  // Falls back to today if session data is unavailable.
+  const computeIssueDate = (student) => {
+    const endDate = student?.sessions?.end_date;
+    if (endDate) {
+      const d = new Date(endDate);
+      d.setMonth(d.getMonth() + 1);
+      return d.toISOString().split('T')[0];
+    }
+    return new Date().toISOString().split('T')[0];
+  };
   
   const isBulk = Array.isArray(generatedCert);
   const templateProps = isBulk
@@ -351,6 +368,8 @@ const AdminCertificates = () => {
         certificateCode: generatedCert?.certificate_number,
         fatherName: selectedStudent?.father_name,
         studentIdNumber: selectedStudent?.student_id_number,
+        serialNumber: selectedStudent?.serial_number,
+        registrationNumber: selectedStudent?.registration_number,
         photoUrl: generatedCert?.photoUrl,
       };
 

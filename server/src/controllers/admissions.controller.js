@@ -1,5 +1,5 @@
 import { supabaseAdmin } from '../config/supabase.js';
-import { generateStudentId } from '../utils/idGenerator.js';
+import { generateStudentId, generateRegistrationNumber, generateSerialNumber } from '../utils/idGenerator.js';
 import { sendWelcomeSMS } from '../utils/sms.js';
 
 export const create = async (req, res) => {
@@ -101,6 +101,43 @@ export const update = async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Admission not found' });
 
+    // If the admission was approved (has a user_id), sync the linked
+    // student and user records with the updated fields.
+    if (data.user_id) {
+      const studentUpdates = {};
+      if (fatherName !== undefined) studentUpdates.father_name = fatherName || null;
+      if (motherName !== undefined) studentUpdates.mother_name = motherName || null;
+      if (phone !== undefined) studentUpdates.phone = phone;
+      if (dateOfBirth !== undefined) studentUpdates.date_of_birth = dateOfBirth;
+      if (gender !== undefined) studentUpdates.gender = gender;
+      if (address !== undefined) studentUpdates.address = address;
+      if (city !== undefined) studentUpdates.city = city || null;
+      if (state !== undefined) studentUpdates.state = state || null;
+      if (pincode !== undefined) studentUpdates.pincode = pincode || null;
+      if (courseId !== undefined) studentUpdates.course_id = courseId;
+      if (sessionId !== undefined) studentUpdates.session_id = sessionId;
+      if (franchiseId !== undefined) studentUpdates.franchise_id = franchiseId;
+
+      if (Object.keys(studentUpdates).length > 0) {
+        studentUpdates.updated_at = new Date().toISOString();
+        await supabaseAdmin
+          .from('students')
+          .update(studentUpdates)
+          .eq('user_id', data.user_id);
+      }
+
+      // Sync user record (email + full_name)
+      const userUpdates = {};
+      if (fullName !== undefined) userUpdates.full_name = fullName;
+      if (email !== undefined) userUpdates.email = email;
+      if (Object.keys(userUpdates).length > 0) {
+        await supabaseAdmin
+          .from('users')
+          .update(userUpdates)
+          .eq('id', data.user_id);
+      }
+    }
+
     res.json({ message: 'Admission updated', admission: data });
   } catch (err) {
     console.error('Update admission error:', err);
@@ -172,9 +209,13 @@ export const updateStatus = async (req, res) => {
 
         // Create student record
         const studentIdNumber = await generateStudentId();
+        const registrationNumber = await generateRegistrationNumber();
+        const serialNumber = await generateSerialNumber();
         await supabaseAdmin.from('students').insert({
           user_id: authData.user.id,
           student_id_number: studentIdNumber,
+          registration_number: registrationNumber,
+          serial_number: serialNumber,
           course_id: admission.course_id,
           session_id: sessionId || admission.session_id || null,
           franchise_id: admission.franchise_id,

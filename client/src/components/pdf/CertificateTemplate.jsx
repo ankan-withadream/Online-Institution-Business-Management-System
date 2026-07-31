@@ -32,6 +32,14 @@ const styles = StyleSheet.create({
     paddingTop: 270,
     paddingHorizontal: 60,
   },
+  serialNumber: {
+   position: 'absolute',
+   top: 36,
+   left: 90,
+   fontSize: 12,
+   color: '#1e3a8a',
+   fontFamily: 'Helvetica-Bold' 
+  },
   certifyText: {
     fontSize: 14,
     color: '#374151',
@@ -64,11 +72,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   studentId: {
-    fontSize: 15,
+    fontSize: 20,
     color: '#363940',
-    marginTop: 32,
-    marginLeft: 175,
-    fontFamily: 'Helvetica',
+    marginTop: 30,
+    marginLeft: 162,
+    fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
     letterSpacing: 1,
   },
@@ -142,10 +150,12 @@ const CertificateTemplate = ({
   fatherName,
   studentIdNumber,
   photoUrl,
+  serialNumber,
+  registrationNumber,
 }) => {
   const certsToRender = certificates.length > 0
     ? certificates
-    : [{ studentName, courseName, issueDate, certificateCode, fatherName, studentIdNumber, photoUrl }];
+    : [{ studentName, courseName, issueDate, certificateCode, fatherName, studentIdNumber, photoUrl, serialNumber, registrationNumber }];
 
   return (
     <Document>
@@ -153,6 +163,13 @@ const CertificateTemplate = ({
         <Page key={index} size="A4" orientation="portrait" style={styles.page}>
           <View style={styles.pageWrapper}>
             <Image src={certificateBg} style={styles.backgroundImage} />
+
+            {/* Serial Number — top-left corner */}
+            {cert.serialNumber && (
+              <Text style={styles.serialNumber}>
+                {cert.serialNumber}
+              </Text>
+            )}
 
             <View style={styles.content}>
               {/* <Text style={styles.certifyText}>This is to certify that</Text> */}
@@ -163,15 +180,17 @@ const CertificateTemplate = ({
               <Text style={styles.fatherName}>
                 {cert.fatherName || 'Test Father Name'}
               </Text>
-              {cert.studentIdNumber && (
-                <Text style={styles.studentId}>{cert.studentIdNumber}</Text>
+              {cert.registrationNumber && (
+                <Text style={styles.studentId}>{cert.registrationNumber}</Text>
               )}
               {/* <View style={styles.underline} /> */}
 
               {/* <Text style={styles.courseText}>has successfully completed the course</Text> */}
               <Text style={styles.courseName}>{cert.courseName}</Text>
 
-              {/* <Text style={styles.dateRow}>on {cert.issueDate}</Text> */}
+              {/* {cert.issueDate && (
+                <Text style={styles.dateRow}>{formatDisplayDate(cert.issueDate)}</Text>
+              )} */}
 
               {/* <View style={styles.footerSection}>
                 <View style={styles.signatureBlock}>

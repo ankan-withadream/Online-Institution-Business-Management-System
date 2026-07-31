@@ -141,7 +141,7 @@ export const admissionUpdateSchema = z.object({
 
 export const subjectSchema = z.object({
   name: z.string().min(2),
-  code: z.string().min(2),
+  code: z.string().min(1),
   description: z.string().optional(),
   courseId: z.string().uuid().optional(),
   maxMarks: z.number().int().positive(),

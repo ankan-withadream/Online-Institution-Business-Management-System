@@ -61,9 +61,10 @@ const Courses = () => {
                     <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <Clock size={14} style={{ marginTop: '-1px' }} /> {course.duration_months} months
                     </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    {/* Hiding course fee as client requirement */}
+                    {/* <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                       <IndianRupee size={14} style={{ marginTop: '-1px' }} /> {Number(course.fee).toLocaleString()}
-                    </span>
+                    </span> */}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -148,12 +149,13 @@ const Courses = () => {
                     {selectedCourse.duration_months} months
                   </p>
                 </div>
-                <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '8px' }}>
+                {/* Hiding course fee as client requirement */}
+                {/* <div style={{ background: '#f9fafb', padding: '1rem', borderRadius: '8px' }}>
                   <p style={{ fontSize: '0.875rem', color: '#6b7280', marginBottom: '0.25rem' }}>Fee</p>
                   <p style={{ fontSize: '1rem', fontWeight: 600, color: '#111827' }}>
                     ₹{Number(selectedCourse.fee).toLocaleString()}
                   </p>
-                </div>
+                </div> */}
               </div>
 
               {selectedCourse.sessions && selectedCourse.sessions.length > 0 && (

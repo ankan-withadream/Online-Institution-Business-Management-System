@@ -28,11 +28,12 @@ const styles = StyleSheet.create({
   // ── Serial No. value (top-left, after the "Serial No.:" label) ──
   serialValue: {
     position: 'absolute',
-    top: 16,
-    left: 110,
-    fontSize: 9,
+    top: 48,
+    left: 100,
+    fontSize: 15,
     color: '#1e3a8a',
-    fontFamily: 'Helvetica-Bold',
+    fontFamily: 'Helvetica',
+    textAlign: 'center',
   },
 
   // ── Body blanks ──
@@ -67,7 +68,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 352,
     left: 80,
-    right: 510,
     fontSize: 13,
     color: '#1e3a8a',
     fontFamily: 'Helvetica-Oblique',
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
   issuerValue: {
     position: 'absolute',
     top: 394,
-    left: 150,
+    left: 110,
     right: 290,
     fontSize: 13,
     color: '#1e3a8a',
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   registrationValue: {
     position: 'absolute',
     top: 435,
-    left: 230,
+    left: 200,
     right: 460,
     fontSize: 13,
     color: '#1e3a8a',
@@ -109,13 +109,14 @@ const styles = StyleSheet.create({
   // ── Dated of Issue value (center-bottom, under "Dated of Issue" label) ──
   dateOfIssue: {
     position: 'absolute',
-    top: 480,
-    left: 280,
-    right: 280,
-    fontSize: 13,
+    top: 549,
+    left: 365,
+    fontSize: 15,
     color: '#1e3a8a',
     fontFamily: 'Helvetica-Bold',
     textAlign: 'center',
+    backgroundColor: '#ffffff',
+    width: 100,
   },
 });
 
@@ -144,21 +145,28 @@ const MigrationCertificateTemplate = ({
   courseName,
   issueDate,
   issuerName,
+  serialNumber,
+  registrationNumber,
 }) => {
   const sheetsToRender = certificates.length > 0
     ? certificates
     : [{
         studentName, fatherName, studentIdNumber, courseName,
-        issueDate, issuerName,
+        issueDate, issuerName, serialNumber, registrationNumber
       }];
 
   return (
     <Document>
       {sheetsToRender.map((cert, sheetIndex) => {
-        const serialValue = sheetIndex + 1;
-        const yearValue = cert.issueDate
-          ? new Date(cert.issueDate).getFullYear()
-          : new Date().getFullYear();
+        // Show the real serial_number if the student has one (set by
+        // the application or backfilled in the DB), else fall back to
+        // the sheet index + 1 so pre-migration students still render
+        // something visible in the serial slot.
+        // const serialValue = (cert.serialNumber ?? sheetIndex + 1) || (sheetIndex + 1);
+        // Compute date of issue from the certificate's issue_date
+        // (which is already session end + 1 month from AdminCertificates).
+        const resolvedIssueDate = cert.issueDate || new Date().toISOString().split('T')[0];
+        const yearValue = new Date(resolvedIssueDate).getFullYear();
 
         return (
           <Page
@@ -171,7 +179,7 @@ const MigrationCertificateTemplate = ({
               <Image src={migrationBg} style={styles.backgroundImage} />
 
               {/* Serial */}
-              <Text style={styles.serialValue}>{serialValue}</Text>
+              <Text style={styles.serialValue}>{cert.serialNumber}</Text>
 
               {/* Body blanks */}
               <Text style={styles.studentNameValue}>{cert.studentName || ''}</Text>
@@ -183,11 +191,11 @@ const MigrationCertificateTemplate = ({
                 {cert.issuerName || 'Vivekananda Education & Health Training Institute'}
               </Text>
               <Text style={styles.yearValue}>{yearValue}</Text>
-              <Text style={styles.registrationValue}>{cert.studentIdNumber || ''}</Text>
+              <Text style={styles.registrationValue}>{cert.registrationNumber || ''}</Text>
 
               {/* Date of issue */}
               <Text style={styles.dateOfIssue}>
-                {/* {formatIssueDate(cert.issueDate) || formatIssueDate(new Date())} */}
+                {formatIssueDate(resolvedIssueDate)}
               </Text>
             </View>
           </Page>

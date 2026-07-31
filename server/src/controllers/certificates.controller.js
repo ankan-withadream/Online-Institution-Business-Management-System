@@ -77,7 +77,7 @@ export const getByStudent = async (req, res) => {
 
     const { data, error } = await supabaseAdmin
       .from('certificates')
-      .select('*, courses(name)')
+      .select('*, courses(name), students(serial_number, registration_number)')
       .eq('student_id', req.params.studentId)
       .order('created_at', { ascending: false });
 

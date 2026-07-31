@@ -126,6 +126,15 @@ export const update = async (req, res) => {
       }
 
       if (subjects.length > 0) {
+        // Reject duplicate codes — PostgreSQL ON CONFLICT can't handle them in the same batch
+        const seen = new Set();
+        for (const s of subjects) {
+          if (seen.has(s.code)) {
+            return res.status(400).json({ error: 'Duplicate subject code: ' + s.code });
+          }
+          seen.add(s.code);
+        }
+
         const parsedSubjects = subjects.map(s => ({
           course_id: courseId,
           name: s.name,

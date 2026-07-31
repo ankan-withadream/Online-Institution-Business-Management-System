@@ -177,12 +177,14 @@ const MarksheetTemplate = ({
   courseName,
   photoUrl,
   results = [],
+  serialNumber,
+  registrationNumber,
 }) => {
   const sheetsToRender = marksheets.length > 0
     ? marksheets
     : [{
         studentName, fatherName, motherName, dateOfBirth, sessionName,
-        studentIdNumber, courseName, photoUrl, results,
+        studentIdNumber, courseName, photoUrl, results, serialNumber, registrationNumber,
       }];
 
   return (
@@ -204,8 +206,8 @@ const MarksheetTemplate = ({
               <Image src={marksheetBg} style={styles.backgroundImage} />
 
               {/* Serial / Registration values */}
-              <Text style={styles.serialValueLeft}>{sheetIndex + 1}</Text>
-              <Text style={styles.serialValueRight}>{sheet.studentIdNumber || ''}</Text>
+              <Text style={styles.serialValueLeft}>{sheet.serialNumber || ''}</Text>
+              <Text style={styles.serialValueRight}>{sheet.registrationNumber || ''}</Text>
 
               {/* Photo */}
               {sheet.photoUrl && (
