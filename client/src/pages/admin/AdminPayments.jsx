@@ -25,6 +25,10 @@ const AdminPayments = () => {
   const [transactionId, setTransactionId] = useState('');
   const [remarks, setRemarks] = useState('');
   const [submittingPay, setSubmittingPay] = useState(false);
+  const [paymentMode, setPaymentMode] = useState('franchise'); // 'franchise' | 'manual'
+  const [rollNumber, setRollNumber] = useState('');
+  const [rollNumberStudent, setRollNumberStudent] = useState(null);
+  const [rollNumberLoading, setRollNumberLoading] = useState(false);
   const [qrDocument, setQrDocument] = useState(null);
   const [loadingQr, setLoadingQr] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -170,6 +174,30 @@ const AdminPayments = () => {
     }
   };
 
+  // Lookup student by roll number (student_id_number)
+  const handleRollNumberLookup = async () => {
+    const trimmed = rollNumber.trim();
+    if (!trimmed) return toast.error('Please enter a roll number');
+
+    setRollNumberLoading(true);
+    setRollNumberStudent(null);
+    setSelectedStudentId('');
+    try {
+      const res = await api.get(`/students?studentIdNumber=${encodeURIComponent(trimmed)}`);
+      if (res.data && res.data.length > 0) {
+        setRollNumberStudent(res.data[0]);
+        setSelectedStudentId(res.data[0].id);
+        setSelectedFranchiseId(res.data[0].franchise_id);
+      } else {
+        toast.error('No student found with this roll number');
+      }
+    } catch (err) {
+      toast.error('Failed to look up student');
+    } finally {
+      setRollNumberLoading(false);
+    }
+  };
+
   // ── Invoice handlers ──
   const handleOpenInvoiceConfig = (payment) => {
     // Resolve session info from the locally-fetched students list
@@ -243,7 +271,7 @@ const AdminPayments = () => {
           <button className="btn btn-secondary" onClick={() => setQrModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <QrCode size={18} /> Update QR Code
           </button>
-          <button className="btn btn-primary" onClick={() => setPayModalOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <button className="btn btn-primary" onClick={() => { setPayModalOpen(true); setPaymentMode('franchise'); setRollNumber(''); setRollNumberStudent(null); }} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Plus size={18} /> Record Payment
           </button>
         </div>
@@ -373,36 +401,93 @@ const AdminPayments = () => {
               </button>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Franchise</label>
-              <select 
-                className="form-select" 
-                value={selectedFranchiseId} 
-                onChange={(e) => {
-                  setSelectedFranchiseId(e.target.value);
-                  setSelectedStudentId('');
-                }}
+            {/* Payment Mode Tabs */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+              <button
+                type="button"
+                className={`btn ${paymentMode === 'franchise' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                onClick={() => { setPaymentMode('franchise'); setRollNumber(''); setRollNumberStudent(null); setSelectedStudentId(''); }}
+                style={{ flex: 1 }}
               >
-                <option value="">Select Franchise...</option>
-                {franchises?.map(f => (
-                  <option key={f.id} value={f.id}>{f.organization_name}</option>
-                ))}
-              </select>
+                Franchise Student
+              </button>
+              <button
+                type="button"
+                className={`btn ${paymentMode === 'manual' ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                onClick={() => { setPaymentMode('manual'); setSelectedFranchiseId(''); setSelectedStudentId(''); setRollNumber(''); setRollNumberStudent(null); }}
+                style={{ flex: 1 }}
+              >
+                Manual (by Roll No.)
+              </button>
             </div>
 
-            {selectedFranchiseId && (
+            {/* Franchise Mode */}
+            {paymentMode === 'franchise' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Franchise</label>
+                  <select 
+                    className="form-select" 
+                    value={selectedFranchiseId} 
+                    onChange={(e) => {
+                      setSelectedFranchiseId(e.target.value);
+                      setSelectedStudentId('');
+                    }}
+                  >
+                    <option value="">Select Franchise...</option>
+                    {franchises?.map(f => (
+                      <option key={f.id} value={f.id}>{f.organization_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedFranchiseId && (
+                  <div className="form-group">
+                    <label className="form-label">Student</label>
+                    <select 
+                      className="form-select" 
+                      value={selectedStudentId} 
+                      onChange={(e) => setSelectedStudentId(e.target.value)}
+                    >
+                      <option value="">Select Student...</option>
+                      {filteredStudents?.map(s => (
+                        <option key={s.id} value={s.id}>{s.users?.full_name} ({s.student_id_number})</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Manual Mode */}
+            {paymentMode === 'manual' && (
               <div className="form-group">
-                <label className="form-label">Student</label>
-                <select 
-                  className="form-select" 
-                  value={selectedStudentId} 
-                  onChange={(e) => setSelectedStudentId(e.target.value)}
-                >
-                  <option value="">Select Student...</option>
-                  {filteredStudents?.map(s => (
-                    <option key={s.id} value={s.id}>{s.users?.full_name} ({s.student_id_number})</option>
-                  ))}
-                </select>
+                <label className="form-label">Roll Number</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input
+                    className="form-input"
+                    value={rollNumber}
+                    onChange={(e) => { setRollNumber(e.target.value); setRollNumberStudent(null); setSelectedStudentId(''); }}
+                    placeholder="Enter student roll number / ID"
+                    style={{ flex: 1 }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleRollNumberLookup(); }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={handleRollNumberLookup}
+                    disabled={rollNumberLoading || !rollNumber.trim()}
+                  >
+                    {rollNumberLoading ? 'Searching...' : 'Lookup'}
+                  </button>
+                </div>
+                {rollNumberStudent && (
+                  <div style={{ marginTop: '0.75rem', padding: '0.75rem', background: '#f0fdf4', borderRadius: 'var(--radius-md)', border: '1px solid #bbf7d0' }}>
+                    <span style={{ fontSize: '0.875rem', color: '#166534' }}>
+                      Found: <strong>{rollNumberStudent.users?.full_name}</strong> — {rollNumberStudent.courses?.name}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -507,6 +592,12 @@ const AdminPayments = () => {
                   </div>
                 )}
               </>
+            )}
+
+            {paymentMode === 'manual' && !selectedStudentId && rollNumber && !rollNumberLoading && (
+              <div style={{ textAlign: 'center', padding: '1rem', color: '#9ca3af', fontSize: '0.875rem' }}>
+                Enter a roll number and click Lookup to find the student.
+              </div>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--gray-200)', paddingTop: '1.5rem' }}>

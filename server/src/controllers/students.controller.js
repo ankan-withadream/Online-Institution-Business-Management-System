@@ -74,6 +74,7 @@ export const getAll = async (req, res) => {
     if (req.query.status) query = query.eq('status', req.query.status);
     if (req.query.courseId) query = query.eq('course_id', req.query.courseId);
     if (req.query.sessionId) query = query.eq('session_id', req.query.sessionId);
+    if (req.query.studentIdNumber) query = query.eq('student_id_number', req.query.studentIdNumber);
 
     const { data, error } = await query;
     if (error) throw error;
