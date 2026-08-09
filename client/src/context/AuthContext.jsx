@@ -15,12 +15,44 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check stored session
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    // Validate stored session instead of blindly trusting localStorage
+    var storedUser = localStorage.getItem('user');
+    var accessToken = localStorage.getItem('accessToken');
+
+    if (storedUser && accessToken) {
+      // Verify the token is still valid
+      api.get('/auth/me')
+        .then(function () {
+          setUser(JSON.parse(storedUser));
+          setLoading(false);
+        })
+        .catch(function () {
+          // Token expired — try refresh
+          var refreshToken = localStorage.getItem('refreshToken');
+          if (!refreshToken) {
+            throw new Error('No refresh token');
+          }
+          return api.post('/auth/refresh', { refreshToken: refreshToken });
+        })
+        .then(function (refreshRes) {
+          if (refreshRes) {
+            localStorage.setItem('accessToken', refreshRes.data.accessToken);
+            localStorage.setItem('refreshToken', refreshRes.data.refreshToken);
+            setUser(JSON.parse(storedUser));
+          }
+          setLoading(false);
+        })
+        .catch(function () {
+          // Both tokens dead — clean up
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('user');
+          setUser(null);
+          setLoading(false);
+        });
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
 
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
