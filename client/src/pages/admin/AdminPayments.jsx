@@ -7,10 +7,13 @@ import toast from 'react-hot-toast';
 import DataTable from '../../components/ui/DataTable';
 
 const AdminPayments = () => {
-  const { refetch: refetchPayments } = useFetch('/fees');
+  const { data: feePayments, loading: paymentsLoading, refetch: refetchPayments } = useFetch('/fees');
   const { data: franchises } = useFetch('/franchises');
-  const { data: courses } = useFetch('/courses');
-  const { data: students } = useFetch('/students');
+  // /courses and /students use respondList → paginated envelope { data, total, page, perPage }
+  const { data: coursesEnvelope } = useFetch('/courses');
+  const { data: studentsEnvelope } = useFetch('/students');
+  const courses = coursesEnvelope?.data || [];
+  const students = studentsEnvelope?.data || [];
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [qrModalOpen, setQrModalOpen] = useState(false);
@@ -103,7 +106,9 @@ const AdminPayments = () => {
   const selectedStudent = students?.find(s => s.id === selectedStudentId);
   const studentCourse = selectedStudent ? courses?.find(c => c.id === selectedStudent.course_id) : null;
   const courseFee = studentCourse?.fee || 0;
-  const studentPayments = feePayments?.filter(p => p.student_id === selectedStudentId && p.status === 'completed') || [];
+  // feePayments is a paginated envelope { data, total, page, perPage } from respondList
+  const feePaymentsArray = feePayments?.data || [];
+  const studentPayments = feePaymentsArray.filter(p => p.student_id === selectedStudentId && p.status === 'completed') || [];
   const totalPaid = studentPayments.reduce((sum, p) => sum + Number(p.paid_amount), 0);
   const totalDue = Math.max(0, courseFee - totalPaid);
 
