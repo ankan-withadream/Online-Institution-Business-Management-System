@@ -19,7 +19,9 @@ const AdminCertificates = () => {
   const [templateMode, setTemplateMode] = useState('certificate');
   const [refreshKey, setRefreshKey] = useState(0);
 
-  const { data: courses, loading: coursesLoading } = useFetch('/courses');
+  // Courses for modal dropdown — admin/all returns an envelope, unwrap it
+  const { data: coursesEnvelope, loading: coursesLoading } = useFetch('/courses/admin/all');
+  const courses = coursesEnvelope?.data || [];
 
   const handleCourseChange = (e) => {
     setSelectedCourse(e.target.value);
@@ -172,15 +174,23 @@ const AdminCertificates = () => {
   const templateDocument = <TemplateComponent {...templateProps} />;
 
   const columns = [
-    { source: 'users.full_name', label: 'Student Name' },
-    { source: 'student_id_number', label: 'Student ID' },
+    { source: 'users.full_name', label: 'Student Name', sortable: true },
+    { source: 'student_id_number', label: 'Student ID', sortable: true, render: (v) => <code>{v}</code> },
     { source: 'users.email', label: 'Email' },
-    { source: 'enrollment_date', label: 'Enrollment Date', render: (v) => v ? new Date(v).toLocaleDateString() : '-' },
+    { source: 'enrollment_date', label: 'Enrolled', sortable: true, render: (v) => v ? new Date(v).toLocaleDateString() : '-' },
+    {
+      source: 'status',
+      label: 'Status',
+      sortable: true,
+      render: (v) => <span className={`badge badge-${v === 'active' ? 'success' : v === 'graduated' ? 'info' : 'danger'}`}>{v}</span>,
+    },
   ];
 
+  // DataTable passes params as filter to useListController; dataProvider
+  // translates bare column names into filter[col] query params for the API.
   const params = {};
-  if (selectedCourse) params['filter[course_id]'] = selectedCourse;
-  if (selectedSession) params['filter[session_id]'] = selectedSession;
+  if (selectedCourse) params['course_id'] = selectedCourse;
+  if (selectedSession) params['session_id'] = selectedSession;
 
   return (
     <div className="admin-certificates">
@@ -223,6 +233,17 @@ const AdminCertificates = () => {
           columns={columns}
           params={params}
           emptyMessage="No students found for this course."
+          filters={[
+            {
+              source: 'status',
+              label: 'Status',
+              options: [
+                { value: 'active', label: 'Active' },
+                { value: 'graduated', label: 'Graduated' },
+                { value: 'suspended', label: 'Suspended' },
+              ],
+            },
+          ]}
           bulkActions={
             <CertBulkActions
               onGenerate={(ids) => handleBulkGenerate(ids, 'certificate')}

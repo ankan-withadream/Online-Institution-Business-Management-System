@@ -12,17 +12,18 @@ const AdminResults = () => {
   const [selectedSession, setSelectedSession] = useState('');
   const [selectedExam, setSelectedExam] = useState('');
 
-  const { data: courses, loading: coursesLoading } = useFetch('/courses');
-  const { data: exams, loading: examsLoading } = useFetch(
-    selectedCourse
-      ? `/exams?courseId=${selectedCourse}${selectedSession ? `&sessionId=${selectedSession}` : ''}`
-      : '/exams'
-  );
-  const { data: allStudents } = useFetch('/students');
-  const { data: allExams } = useFetch('/exams');
-  const { refetch: refetchResults } = useFetch(
-    selectedExam ? `/results?examId=${selectedExam}` : '/results'
-  );
+  // Courses for modal dropdowns — admin/all returns an envelope, unwrap it
+  const { data: coursesEnvelope, loading: coursesLoading } = useFetch('/courses/admin/all');
+  const courses = coursesEnvelope?.data || [];
+
+  // All exams for lookups and dropdown — unwrap envelope
+  const { data: allExamsEnvelope, loading: examsLoading } = useFetch('/exams');
+  const allExams = allExamsEnvelope?.data || [];
+
+  // All students for lookups — unwrap envelope
+  const { data: allStudentsEnvelope } = useFetch('/students');
+  const allStudents = allStudentsEnvelope?.data || [];
+
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -126,7 +127,6 @@ const AdminResults = () => {
       }
       handleCloseModal();
       setRefreshKey((k) => k + 1);
-      refetchResults();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to save result');
     } finally {
@@ -173,7 +173,6 @@ const AdminResults = () => {
         toast.success(`Successfully uploaded ${resultsToUpload.length} results`);
         handleCloseBulkModal();
         setRefreshKey((k) => k + 1);
-        refetchResults();
       } catch (err) {
         toast.error(err.response?.data?.error || err.message || 'Error processing CSV file');
       } finally {
@@ -202,7 +201,6 @@ const AdminResults = () => {
       await api.delete(`/results/${id}`);
       toast.success('Result deleted successfully');
       setRefreshKey((k) => k + 1);
-      refetchResults();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to delete result');
     }
@@ -223,7 +221,6 @@ const AdminResults = () => {
       await api.put(`/results/${result.id}`, payload);
       toast.success(`Result ${!result.published ? 'published' : 'unpublished'} successfully`);
       setRefreshKey((k) => k + 1);
-      refetchResults();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to update result status');
     }
@@ -245,8 +242,10 @@ const AdminResults = () => {
   if (bulkFormData.courseId) bulkFilteredExams = bulkFilteredExams?.filter(e => e.course_id === bulkFormData.courseId);
   if (bulkFormData.subjectId) bulkFilteredExams = bulkFilteredExams?.filter(e => e.subject_id === bulkFormData.subjectId);
 
+  // DataTable passes params as filter to useListController; dataProvider
+  // translates bare column names into filter[col] query params for the API.
   const params = {};
-  if (selectedExam) params['filter[exam_id]'] = selectedExam;
+  if (selectedExam) params['exam_id'] = selectedExam;
 
   const columns = [
     {
@@ -331,9 +330,11 @@ const AdminResults = () => {
             <label className="form-label">Filter by Exam</label>
             <select value={selectedExam} onChange={(e) => setSelectedExam(e.target.value)} className="form-input" disabled={examsLoading}>
               <option value="">-- All Exams --</option>
-              {exams && exams.map(exam => (
-                <option key={exam.id} value={exam.id}>{exam.name}</option>
-              ))}
+              {allExams
+                .filter(e => !selectedCourse || e.course_id === selectedCourse)
+                .map(exam => (
+                  <option key={exam.id} value={exam.id}>{exam.name}</option>
+                ))}
             </select>
           </div>
         </div>

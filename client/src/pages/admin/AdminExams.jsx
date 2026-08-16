@@ -10,8 +10,8 @@ import { useListContext } from 'ra-core';
 import { useBulkActions } from '../../hooks/useBulkActions';
 
 const AdminExams = () => {
-  const { data: exams, loading, error, refetch } = useFetch('/exams');
-  const { data: courses } = useFetch('/courses/admin/all');
+  const { data: coursesEnvelope, loading: coursesLoading } = useFetch('/courses/admin/all');
+  const courses = coursesEnvelope?.data || [];
   const [refreshKey, setRefreshKey] = useState(0);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -202,7 +202,7 @@ const AdminExams = () => {
       }
 
       handleCloseModal();
-      refetch();
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to save exam');
     } finally {
@@ -216,7 +216,7 @@ const AdminExams = () => {
     try {
       await api.delete(`/exams/${id}`);
       toast.success('Exam deleted successfully');
-      refetch();
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to delete exam');
     }
@@ -248,8 +248,10 @@ const AdminExams = () => {
   // DataTable handles filtering via the dataProvider's `filter[]` query params,
   // so the previous client-side filteredExams is no longer needed here.
 
-  if (loading) return <div className="loading-screen"><div className="spinner" /></div>;
-  if (error) return <div className="error-screen">{error}</div>;
+  // Connect external filter card to DataTable via params
+  const params = {};
+  if (courseFilter) params['course_id'] = courseFilter;
+  if (sessionFilter) params['session_id'] = sessionFilter;
 
   return (
     <div className="admin-exams">
@@ -274,6 +276,7 @@ const AdminExams = () => {
                 setCourseFilter(e.target.value);
                 setSessionFilter('');
               }}
+              disabled={coursesLoading}
             >
               <option value="">All Courses</option>
               {courses?.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -301,6 +304,7 @@ const AdminExams = () => {
         key={refreshKey}
         resource="exams"
         columns={examColumns}
+        params={params}
         emptyMessage="No exams found. Create one to get started."
         infinite
         filters={[

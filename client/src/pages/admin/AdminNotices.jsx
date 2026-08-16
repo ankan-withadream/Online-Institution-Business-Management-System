@@ -8,8 +8,9 @@ import { useListContext } from 'ra-core';
 import { useBulkActions } from '../../hooks/useBulkActions';
 
 const AdminNotices = () => {
-  const { refetch } = useFetch('/notices/admin/all');
-  const { data: courses } = useFetch('/courses');
+  // Courses for modal dropdown — admin/all returns an envelope, unwrap it
+  const { data: coursesEnvelope } = useFetch('/courses/admin/all');
+  const courses = coursesEnvelope?.data || [];
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingNotice, setEditingNotice] = useState(null);
   const [viewingNotice, setViewingNotice] = useState(null);
@@ -79,7 +80,6 @@ const AdminNotices = () => {
       }
       handleCloseModal();
       setRefreshKey((k) => k + 1);
-      refetch();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to save notice');
     } finally {
@@ -93,7 +93,6 @@ const AdminNotices = () => {
       await api.delete(`/notices/${id}`);
       toast.success('Notice deleted successfully');
       setRefreshKey((k) => k + 1);
-      refetch();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Failed to delete notice');
     }

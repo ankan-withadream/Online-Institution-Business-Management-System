@@ -213,8 +213,15 @@ export const getAll = async (req, res) => {
   try {
     const listOpts = {
       sortable: ['created_at', 'paid_amount', 'due_amount', 'status'],
-      searchable: [],
+      searchable: ['transaction_id', 'payment_method', 'students.users.full_name', 'courses.name', 'franchises.organization_name'],
       filterable: ['student_id', 'franchise_id', 'course_id', 'status', 'payment_type'],
+      // nested columns -> FK the *containing* table uses to reference the child
+      nestedFk: {
+        students: 'student_id',
+        'students.users': 'user_id',
+        courses: 'course_id',
+        franchises: 'franchise_id',
+      },
     };
 
     let query = supabaseAdmin
@@ -224,7 +231,7 @@ export const getAll = async (req, res) => {
         { count: 'exact' }
       );
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
 
     const result = await query;

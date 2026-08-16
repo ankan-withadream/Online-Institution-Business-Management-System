@@ -69,8 +69,10 @@ export const getAll = async (req, res) => {
   try {
     const listOpts = {
       sortable: ['student_id_number', 'enrollment_date', 'created_at', 'status'],
-      searchable: ['student_id_number'],
+      searchable: ['student_id_number', 'users.full_name', 'users.email'],
       filterable: ['status', 'course_id', 'session_id'],
+      // nested columns -> local FK on the students table
+      nestedFk: { users: 'user_id' },
     };
 
     let query = supabaseAdmin
@@ -82,18 +84,9 @@ export const getAll = async (req, res) => {
 
     if (req.query.franchiseId) query = query.eq('franchise_id', req.query.franchiseId);
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
 
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
-
-    // Nested-table text search: match users.full_name and users.email
-    if (req.query.q) {
-      const escaped = String(req.query.q).replace(/[%_]/g, (m) => '\\' + m);
-      const pat = `%${escaped}%`;
-      query = query.or(
-        `student_id_number.ilike.${pat},users.full_name.ilike.${pat},users.email.ilike.${pat}`
-      );
-    }
 
     const result = await query;
     const params = parseListParams(req, listOpts);

@@ -115,7 +115,7 @@ export const getAll = async (req, res) => {
       }
     }
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
     if (!req.query.sort) query = query.order('exam_date', { ascending: true });
 
     const result = await query;

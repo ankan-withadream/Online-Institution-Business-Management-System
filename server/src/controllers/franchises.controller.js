@@ -34,16 +34,25 @@ export const apply = async (req, res) => {
 
 export const getAll = async (req, res) => {
   try {
+    const listOpts = {
+      sortable: ['created_at', 'organization_name', 'status'],
+      searchable: ['organization_name', 'contact_person', 'email', 'phone', 'city', 'state'],
+      filterable: ['status', 'course_categories'],
+    };
+
     let query = supabaseAdmin
       .from('franchises')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact' });
 
+    // Backward-compatible direct status filter
     if (req.query.status) query = query.eq('status', req.query.status);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    res.json(data);
+    ({ query } = await applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get franchises error:', err);
     res.status(500).json({ error: 'Failed to fetch franchises' });
@@ -169,8 +178,10 @@ export const getStudents = async (req, res) => {
 
     const listOpts = {
       sortable: ['student_id_number', 'enrollment_date', 'created_at', 'status'],
-      searchable: ['student_id_number', 'full_name', 'email'],
+      searchable: ['student_id_number', 'users.full_name', 'users.email'],
       filterable: ['status', 'course_id', 'session_id'],
+      // nested columns -> FK the *containing* table uses to reference the child
+      nestedFk: { users: 'user_id' },
     };
 
     let query = supabaseAdmin
@@ -181,16 +192,8 @@ export const getStudents = async (req, res) => {
       )
       .eq('franchise_id', req.params.id);
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
-
-    if (req.query.q) {
-      const escaped = String(req.query.q).replace(/[%_]/g, (m) => '\\' + m);
-      const pat = `%${escaped}%`;
-      query = query.or(
-        `student_id_number.ilike.${pat},users.full_name.ilike.${pat},users.email.ilike.${pat}`
-      );
-    }
 
     const result = await query;
     const params = parseListParams(req, listOpts);

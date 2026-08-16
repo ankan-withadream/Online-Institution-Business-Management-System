@@ -78,7 +78,7 @@ export const getByStudent = async (req, res) => {
       .eq('student_id', req.params.studentId)
       .eq('published', true);
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
 
     const result = await query;
@@ -137,22 +137,34 @@ export const verify = async (req, res) => {
 
 export const getAll = async (req, res) => {
   try {
+    const listOpts = {
+      sortable: ['marks_obtained', 'created_at', 'grade', 'is_pass', 'published'],
+      searchable: ['grade', 'students.users.full_name', 'exams.name', 'subjects.name'],
+      filterable: ['exam_id', 'subject_id', 'is_pass', 'published'],
+      // nested columns -> FK the *containing* table uses to reference the child
+      nestedFk: {
+        students: 'student_id',
+        'students.users': 'user_id',
+        exams: 'exam_id',
+        subjects: 'subject_id',
+      },
+    };
+
     let query = supabaseAdmin
       .from('results')
-      .select('*, students(student_id_number, session_id, users(full_name)), exams(name, course_id, session_id), subjects(name)')
-      .order('created_at', { ascending: false });
+      .select('*, students(student_id_number, session_id, users(full_name)), exams(name, course_id, session_id), subjects(name)', { count: 'exact' });
 
+    // Backward-compatible direct examId filter
     if (req.query.examId) {
       query = query.eq('exam_id', req.query.examId);
     }
 
-    // Also support getting by courseId if needed.
-    // Course filtering might require a different approach since course_id is in exams.
-    // For now we assume the frontend filters by examId effectively.
+    ({ query } = await applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
 
-    const { data, error } = await query;
-    if (error) throw error;
-    res.json(data);
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get all results error:', err);
     res.status(500).json({ error: 'Failed to fetch results' });

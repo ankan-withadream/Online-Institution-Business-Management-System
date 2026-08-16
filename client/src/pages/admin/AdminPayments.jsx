@@ -7,10 +7,12 @@ import toast from 'react-hot-toast';
 import DataTable from '../../components/ui/DataTable';
 
 const AdminPayments = () => {
-  const { data: feePayments, loading: paymentsLoading, refetch: refetchPayments } = useFetch('/fees');
-  const { data: franchises } = useFetch('/franchises');
+  const { data: feePayments, loading: paymentsLoading } = useFetch('/fees');
+  // Franchises for modal dropdown — respondList returns an envelope, unwrap it
+  const { data: franchisesEnvelope } = useFetch('/franchises');
+  const franchises = franchisesEnvelope?.data || [];
   // /courses and /students use respondList → paginated envelope { data, total, page, perPage }
-  const { data: coursesEnvelope } = useFetch('/courses');
+  const { data: coursesEnvelope } = useFetch('/courses/admin/all');
   const { data: studentsEnvelope } = useFetch('/students');
   const courses = coursesEnvelope?.data || [];
   const students = studentsEnvelope?.data || [];
@@ -154,7 +156,6 @@ const AdminPayments = () => {
       setPaymentType('full');
 
       setRefreshKey((k) => k + 1);
-      refetchPayments();
     } catch (err) {
       toast.error(err.response?.data?.error || 'Payment failed');
     } finally {

@@ -16,8 +16,13 @@
  *   - .range(from, to) is inclusive on both ends and zero-based.
  *   - .order(...) supports nested-table ordering via dot notation (e.g. "users.full_name").
  *   - For nested ordering to work the parent table must be selected with a join.
- *   - For nested text search we fall back to a separate users-table filter and intersect.
+ *   - Free-text search: local columns go in the main `.or()`; nested columns
+ *     (e.g. `users.full_name`) are resolved via a separate query on the related
+ *     table (see resolveNestedSearch) and matched by FK ids, because PostgREST
+ *     `.or()` only accepts top-level-table columns.
  */
+
+import { supabaseAdmin } from '../config/supabase.js';
 
 const MAX_PER_PAGE = 200;
 const DEFAULT_PER_PAGE = 25;
@@ -59,14 +64,93 @@ export const parseListParams = (req, opts = {}) => {
 };
 
 /**
+ * Resolve a nested-table text search into per-FK id clauses for the top table.
+ *
+ * PostgREST's `.or()` only accepts columns of the top-level table, so a
+ * `users.full_name` reference inside `.or()` fails with PGRST100. Instead we
+ * query each leaf table directly for matching rows, walk the FK chain back up
+ * to the first-level related table, and return one `{ fk, ids }` clause per
+ * nested path. The caller turns each into `fk.in.(ids)` inside the main `.or()`.
+ *
+ * A nested column path like "students.users.full_name" on fee_payments means:
+ *   - fee_payments.student_id -> students -> students.user_id -> users
+ *   - match users.full_name, collect the matching user ids
+ *   - collect the students whose user_id is in those ids
+ *   - emit { fk: 'student_id', ids: those student ids } for the fee_payments query
+ *
+ * `fkMap` maps each nested path to the FK column the *immediately containing*
+ * table uses to reference its child: `{ students: 'student_id',
+ * 'students.users': 'user_id' }` for the path above.
+ *
+ * @param {string[]} searchable full searchable column list (local + nested)
+ * @param {string} pattern the ILIKE pattern, e.g. "%john%"
+ * @param {object} fkMap { nestedPath: fkColumn } for every nested path
+ * @returns {Promise<Array<{fk: string, ids: string[]}>>} clauses for the main `.or()`
+ */
+export const resolveNestedSearch = async (searchable, pattern, fkMap) => {
+  // Group leaf-table search columns by nested path.
+  const tables = {};
+  for (const col of searchable) {
+    if (!col.includes('.')) continue;
+    const parts = col.split('.');
+    const leafCol = parts.pop();
+    const path = parts.join('.');
+    if (!fkMap[path]) continue;
+    (tables[path] ||= []).push(leafCol);
+  }
+
+  // Resolve each path independently; union their clauses in the caller's OR.
+  const clauses = [];
+  for (const [path, leafCols] of Object.entries(tables)) {
+    const segments = path.split('.');
+    const ors = leafCols.map((c) => `${c}.ilike.${pattern}`).join(',');
+
+    // Leaf table: find matching rows (every table's PK is `id`).
+    const { data, error } = await supabaseAdmin
+      .from(segments[segments.length - 1])
+      .select('id')
+      .or(ors);
+    if (error) throw error;
+    let ids = new Set((data || []).map((r) => String(r.id)).filter(Boolean));
+    if (!ids.size) continue; // nothing matched along this path
+
+    // Walk back up: the FK on the parent referencing the child is fkMap[prefix].
+    for (let i = segments.length - 1; i > 0; i--) {
+      const fk = fkMap[segments.slice(0, i + 1).join('.')];
+      const parentTable = segments[i - 1];
+      const { data: parents, error: parentErr } = await supabaseAdmin
+        .from(parentTable)
+        .select('id')
+        .in(fk, [...ids]);
+      if (parentErr) throw parentErr;
+      ids = new Set((parents || []).map((r) => String(r.id)).filter(Boolean));
+      if (!ids.size) break;
+    }
+    if (ids.size) clauses.push({ fk: fkMap[segments[0]], ids: [...ids] });
+  }
+
+  return clauses;
+};
+
+/**
  * Apply pagination + sort + search + filter to a Supabase query.
  * Returns the post-rest query (still chained-awaitable) plus the parsed params.
  *
- * Nested search: if `q` matches a column like `users.full_name` or `users.email`,
- * we apply a separate `.or('users.full_name.ilike.%q%,users.email.ilike.%q%')`
- * filter instead of the per-column ILIKE.
+ * Free-text search: local columns go into the main `.or()`. Nested columns
+ * (like `users.full_name`) are resolved first via `resolveNestedSearch` and
+ * their matching parent ids combined into the same `.or()` as `fk.in.(...)`.
+ *
+ * `opts`:
+ *   searchable   columns to search across (local + nested)
+ *   nestedFk     one entry per FK hop. Each key is a nested path, each value
+ *                is the FK column the *containing* table uses to reference the
+ *                child at that hop. Examples:
+ *                - students table, nested `users.full_name`:
+ *                  { users: 'user_id' }
+ *                - fee_payments table, nested `students.users.full_name`:
+ *                  { students: 'student_id', 'students.users': 'user_id' }
  */
-export const applyListQuery = (query, req, opts = {}) => {
+export const applyListQuery = async (query, req, opts = {}) => {
   const params = parseListParams(req, opts);
 
   // Pagination + count
@@ -91,19 +175,19 @@ export const applyListQuery = (query, req, opts = {}) => {
   if (params.q && params.searchable.length) {
     const escaped = params.q.replace(/[%_]/g, (m) => '\\' + m);
     const pattern = `%${escaped}%`;
-    // Group searchable columns into a single .or() for efficiency.
-    // Filter only the local-table columns; nested-table columns are handled
-    // by passing `nestedSearchable` and an extra OR.
-    const local = params.searchable.filter((c) => !c.includes('.'));
-    const nested = params.searchable.filter((c) => c.includes('.'));
-
-    if (local.length) {
-      const ors = local.map((c) => `${c}.ilike.${pattern}`).join(',');
-      query = query.or(ors);
+    const ors = [];
+    // Local-table columns can be filtered directly.
+    for (const col of params.searchable) {
+      if (!col.includes('.')) ors.push(`${col}.ilike.${pattern}`);
     }
-    if (nested.length && opts.nestedSearchHandler) {
-      query = opts.nestedSearchHandler(query, pattern, nested);
+    // Nested-table columns: resolve to first-level FK id clauses, then OR them.
+    if (ors.length < params.searchable.length && opts.nestedFk) {
+      const clauses = await resolveNestedSearch(params.searchable, pattern, opts.nestedFk);
+      for (const clause of clauses) {
+        ors.push(`${clause.fk}.in.(${clause.ids.join(',')})`);
+      }
     }
+    if (ors.length) query = query.or(ors.join(','));
   }
 
   return { query, params };

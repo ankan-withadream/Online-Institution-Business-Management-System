@@ -25,24 +25,29 @@ export const create = async (req, res) => {
 
 export const getAll = async (req, res) => {
   try {
+    const listOpts = {
+      sortable: ['created_at', 'publish_date', 'title', 'is_published'],
+      searchable: ['title', 'content', 'category', 'target_audience'],
+      filterable: ['category', 'is_published', 'target_audience', 'course_id'],
+    };
+
     let query = supabaseAdmin
       .from('notices')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*', { count: 'exact' });
 
     // Non-admin users only see published notices
-    console.log('req.user ? ');
     if (!req.user || req.user.role !== 'admin') {
-      console.log('not user or admin');
-      query = query
-        .eq('is_published', true)
-      // .lte('publish_date', new Date().toISOString());
+      query = query.eq('is_published', true);
     }
+    // Backward-compatible direct category filter
     if (req.query.category) query = query.eq('category', req.query.category);
 
-    const { data, error } = await query;
-    if (error) throw error;
-    res.json(data);
+    ({ query } = await applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get notices error:', err);
     res.status(500).json({ error: 'Failed to fetch notices' });

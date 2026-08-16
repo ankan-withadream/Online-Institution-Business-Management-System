@@ -261,7 +261,7 @@ const AdminMarksheets = () => {
 
   const columns = [
     { source: 'users.full_name', label: 'Student Name' },
-    { source: 'student_id_number', label: 'Student ID' },
+    { source: 'student_id_number', label: 'Student ID', sortable: true },
   ];
 
   const params = {};
@@ -356,6 +356,17 @@ const AdminMarksheets = () => {
           columns={columns}
           params={params}
           emptyMessage="No students enrolled in this course."
+          filters={[
+            {
+              source: 'status',
+              label: 'Status',
+              options: [
+                { value: 'active', label: 'Active' },
+                { value: 'graduated', label: 'Graduated' },
+                { value: 'suspended', label: 'Suspended' },
+              ],
+            },
+          ]}
           bulkActions={hasFiltersSelected ? <MarksheetBulkActions onGenerate={handleBulkGenerate} /> : null}
           rowActions={(student) => (
             <button onClick={() => handleGetMarksheet(student)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 1rem', fontSize: '0.875rem' }}>

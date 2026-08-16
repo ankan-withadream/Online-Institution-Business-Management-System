@@ -1,4 +1,3 @@
-import { useFetch } from '../../hooks/useFetch';
 import { useState, useEffect } from 'react';
 import { Eye, X, FileText, Download, Image as ImageIcon, FileBadge } from 'lucide-react';
 import { PDFViewer, PDFDownloadLink } from '@react-pdf/renderer';
@@ -7,7 +6,6 @@ import api from '../../services/api';
 import DataTable from '../../components/ui/DataTable';
 
 const AdminFranchises = () => {
-  const { refetch } = useFetch('/franchises');
   const [processing, setProcessing] = useState(null);
   const [viewingFranchise, setViewingFranchise] = useState(null);
   const [documents, setDocuments] = useState([]);
@@ -40,7 +38,7 @@ const AdminFranchises = () => {
     setProcessing(id);
     try {
       await api.patch(`/franchises/${id}/status`, { status });
-      refetch();
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed');
     }

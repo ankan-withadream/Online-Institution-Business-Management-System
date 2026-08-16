@@ -154,6 +154,7 @@ const DataTableContent = ({
   const {
     data,
     isPending,
+    isFetching,
     error,
     sort: currentSort,
     setSort,
@@ -201,8 +202,8 @@ const DataTableContent = ({
 
       {bulkActions && <BulkActionBar>{bulkActions}</BulkActionBar>}
 
-      <div className="card table-container">
-        {isPending && rows.length === 0 ? (
+      <div className="card table-container" style={{ position: 'relative' }}>
+        {isPending ? (
           <div className="loading-screen">
             <div className="spinner" />
           </div>
@@ -286,12 +287,17 @@ const DataTableContent = ({
             </tbody>
           </table>
         )}
-        {!isPending && rows.length === 0 && (
+        {isFetching && !isPending && (
+          <div className="dt-refresh-overlay">
+            <div className="spinner" style={{ width: '24px', height: '24px' }} />
+          </div>
+        )}
+        {!isPending && !isFetching && rows.length === 0 && (
           <div className="empty-state">
             <p>{emptyMessage}</p>
           </div>
         )}
-        {showPagination && rows.length > 0 && <Pagination />}
+        {showPagination && !isPending && rows.length > 0 && <Pagination />}
       </div>
     </div>
   );

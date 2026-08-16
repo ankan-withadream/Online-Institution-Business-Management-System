@@ -35,18 +35,27 @@ export const create = async (req, res) => {
 
 export const getAll = async (req, res) => {
   try {
+    const listOpts = {
+      sortable: ['full_name', 'email', 'created_at', 'status'],
+      searchable: ['full_name', 'email', 'phone', 'father_name', 'mother_name'],
+      filterable: ['status', 'course_id', 'franchise_id'],
+    };
+
     let query = supabaseAdmin
       .from('admissions')
-      .select('*, courses(name), sessions(session_type, start_date, end_date)')
-      .order('created_at', { ascending: false });
+      .select('*, courses(name), sessions(session_type, start_date, end_date)', { count: 'exact' });
 
+    // Backward-compatible direct status filter
     if (req.query.status) {
       query = query.eq('status', req.query.status);
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    res.json(data);
+    ({ query } = await applyListQuery(query, req, listOpts));
+    if (!req.query.sort) query = query.order('created_at', { ascending: false });
+
+    const result = await query;
+    const params = parseListParams(req, listOpts);
+    respondList(res, result, params);
   } catch (err) {
     console.error('Get admissions error:', err);
     res.status(500).json({ error: 'Failed to fetch admissions' });
@@ -200,7 +209,7 @@ export const getByFranchise = async (req, res) => {
       .select('*, courses(name)', { count: 'exact' })
       .eq('franchise_id', franchiseId);
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
 
     const result = await query;

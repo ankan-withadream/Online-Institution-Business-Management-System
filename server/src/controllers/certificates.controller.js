@@ -87,7 +87,7 @@ export const getByStudent = async (req, res) => {
       .select('*, courses(name)', { count: 'exact' })
       .eq('student_id', req.params.studentId);
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
 
     const result = await query;
@@ -103,8 +103,14 @@ export const getAll = async (req, res) => {
   try {
     const listOpts = {
       sortable: ['issue_date', 'created_at'],
-      searchable: ['certificate_number'],
+      searchable: ['certificate_number', 'students.users.full_name', 'courses.name'],
       filterable: ['course_id'],
+      // nested columns -> FK the *containing* table uses to reference the child
+      nestedFk: {
+        students: 'student_id',
+        'students.users': 'user_id',
+        courses: 'course_id',
+      },
     };
 
     let query = supabaseAdmin
@@ -114,7 +120,7 @@ export const getAll = async (req, res) => {
         { count: 'exact' }
       );
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
 
     const result = await query;

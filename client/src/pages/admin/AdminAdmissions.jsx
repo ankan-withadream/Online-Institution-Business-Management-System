@@ -8,7 +8,6 @@ import api from '../../services/api';
 import DataTable from '../../components/ui/DataTable';
 
 const AdminAdmissions = () => {
-  const { refetch } = useFetch('/admissions');
   const { data: courses } = useFetch('/courses');
   const [processing, setProcessing] = useState(null);
   const [viewingAdmission, setViewingAdmission] = useState(null);
@@ -64,7 +63,6 @@ const AdminAdmissions = () => {
         toast.success('Admission rejected');
       }
       setRefreshKey((k) => k + 1);
-      refetch();
     } catch (err) {
       toast.error(err.response?.data?.error || `Failed to ${status} admission`);
     }

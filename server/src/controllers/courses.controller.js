@@ -27,7 +27,7 @@ export const getAll = async (req, res) => {
       .from('courses')
       .select('*, subjects(*), sessions(*)', { count: 'exact' });
 
-    ({ query } = applyListQuery(query, req, listOpts));
+    ({ query } = await applyListQuery(query, req, listOpts));
 
     if (!req.query.sort) query = query.order('created_at', { ascending: false });
 
