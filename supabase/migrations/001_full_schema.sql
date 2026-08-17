@@ -153,7 +153,7 @@ CREATE TABLE exams (
 CREATE TABLE subjects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT NOT NULL,
-  code TEXT UNIQUE NOT NULL,
+  code TEXT NOT NULL,
   description TEXT NULL,
   course_id UUID REFERENCES courses(id),
   max_marks INTEGER,

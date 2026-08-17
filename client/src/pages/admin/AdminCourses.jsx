@@ -46,6 +46,7 @@ const AdminCourses = () => {
         isActive: course.is_active,
         sessions: course.sessions ? course.sessions.map(s => ({ id: s.id, sessionType: s.session_type, startDate: s.start_date, endDate: s.end_date })) : [],
         subjects: course.subjects ? course.subjects.map(s => ({
+          id: s.id,
           name: s.name,
           code: s.code,
           description: s.description || '',
@@ -349,7 +350,7 @@ const AdminCourses = () => {
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600 }}>Subjects</h3>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { name: '', code: '', description: '', maxMarks: 100, semester: 1 }] }))}
+                    onClick={() => setFormData(prev => ({ ...prev, subjects: [...prev.subjects, { id: undefined, name: '', code: '', description: '', maxMarks: 100, semester: 1 }] }))}
                     className="btn btn-secondary btn-sm"
                   >
                     <Plus size={16} /> Add Subject

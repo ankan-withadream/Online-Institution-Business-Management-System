@@ -109,16 +109,16 @@ export const update = async (req, res) => {
     if (courseError) throw courseError;
     if (!courseData) return res.status(404).json({ error: 'Course not found' });
 
-    // 2. Sync subjects (delete removed, upsert remaining)
+    // 2. Sync subjects (id-based — code is duplicatable so we match on id, not code)
     if (subjects) {
       const { data: existingSubjects } = await supabaseAdmin
         .from('subjects')
-        .select('id, code')
+        .select('id')
         .eq('course_id', courseId);
 
-      const incomingCodes = subjects.map(s => s.code);
+      const incomingIds = subjects.filter(s => s.id).map(s => s.id);
       const idsToDelete = existingSubjects
-        ?.filter(es => !incomingCodes.includes(es.code))
+        ?.filter(es => !incomingIds.includes(es.id))
         .map(es => es.id) || [];
 
       if (idsToDelete.length > 0) {
@@ -126,28 +126,35 @@ export const update = async (req, res) => {
       }
 
       if (subjects.length > 0) {
-        // Reject duplicate codes — PostgreSQL ON CONFLICT can't handle them in the same batch
-        const seen = new Set();
+        const toUpdate = [];
+        const toInsert = [];
+
         for (const s of subjects) {
-          if (seen.has(s.code)) {
-            return res.status(400).json({ error: 'Duplicate subject code: ' + s.code });
+          const row = {
+            course_id: courseId,
+            name: s.name,
+            code: s.code,
+            description: s.description,
+            max_marks: s.maxMarks || s.max_marks || 100,
+            semester: s.semester || 1,
+          };
+          if (s.id) {
+            row.id = s.id;
+            toUpdate.push(row);
+          } else {
+            toInsert.push(row);
           }
-          seen.add(s.code);
         }
 
-        const parsedSubjects = subjects.map(s => ({
-          course_id: courseId,
-          name: s.name,
-          code: s.code,
-          description: s.description,
-          max_marks: s.maxMarks || s.max_marks || 100,
-          semester: s.semester || 1
-        }));
+        if (toUpdate.length > 0) {
+          const { error: updErr } = await supabaseAdmin.from('subjects').upsert(toUpdate);
+          if (updErr) throw updErr;
+        }
 
-        const { error: subErr } = await supabaseAdmin
-          .from('subjects')
-          .upsert(parsedSubjects, { onConflict: 'code' });
-        if (subErr) throw subErr;
+        if (toInsert.length > 0) {
+          const { error: insErr } = await supabaseAdmin.from('subjects').insert(toInsert);
+          if (insErr) throw insErr;
+        }
       }
     }
 
